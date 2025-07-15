@@ -27,7 +27,6 @@ namespace AudioRecorder
         // 实时音频监控
         private VolumeSampleProvider? systemVolumeProvider;
         private VolumeSampleProvider? microphoneVolumeProvider;
-        private System.Threading.Timer? monitoringTimer;
 
         private readonly int targetSampleRate = 44100; // 降低采样率
         private readonly int targetChannels = 2;
@@ -35,7 +34,7 @@ namespace AudioRecorder
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<Exception>? ErrorOccurred;
-        public event EventHandler<AudioLevelEventArgs>? AudioLevelChanged;
+        // 移除音频电平监控事件：public event EventHandler<AudioLevelEventArgs>? AudioLevelChanged;
         public bool IsRecording => isRecording;
 
         public SimpleAudioRecorder()
@@ -71,12 +70,12 @@ namespace AudioRecorder
                 SetupSystemAudioSource();
                 SetupMicrophoneSource();
                 StartSeparateProcessing();
-                StartAudioMonitoring();
+                // 移除音频监控相关代码
 
                 StatusChanged?.Invoke(this, "✅ 录制已开始，分离录制两个音频文件：");
                 StatusChanged?.Invoke(this, $"🔊 系统音频 -> {systemAudioPath}");
                 StatusChanged?.Invoke(this, $"🎤 麦克风音频 -> {microphonePath}");
-                StatusChanged?.Invoke(this, "📊 已启用实时音频电平监控。");
+                // 移除音频监控相关提示
             }
             catch (Exception ex)
             {
@@ -96,6 +95,9 @@ namespace AudioRecorder
             systemAudioCapture.DataAvailable += (s, e) =>
             {
                 systemAudioBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                
+                // 计算系统音频电平
+                // CalculateSystemAudioLevel(e.Buffer, 0, e.BytesRecorded); // 移除旧的电平计算
             };
             systemAudioCapture.StartRecording();
             StatusChanged?.Invoke(this, "🔊 系统音频捕获已启动。");
@@ -112,10 +114,15 @@ namespace AudioRecorder
             microphoneCapture.DataAvailable += (s, e) =>
             {
                 microphoneBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                
+                // 计算麦克风音频电平
+                // CalculateMicrophoneAudioLevel(e.Buffer, 0, e.BytesRecorded); // 移除旧的电平计算
             };
             microphoneCapture.StartRecording();
             StatusChanged?.Invoke(this, "🎤 麦克风捕获已启动。");
         }
+        
+        // 移除旧的16位计算方法，已被新方法替代
 
         private void StartSeparateProcessing()
         {
@@ -164,40 +171,7 @@ namespace AudioRecorder
             }, null, 0, intervalMilliseconds);
         }
 
-        private void StartAudioMonitoring()
-        {
-            if (systemVolumeProvider == null || microphoneVolumeProvider == null)
-                return;
-
-            // 每1000ms更新一次音频电平监控
-            monitoringTimer = new System.Threading.Timer(state =>
-            {
-                if (!isRecording || systemVolumeProvider == null || microphoneVolumeProvider == null) 
-                    return;
-
-                try
-                {
-                    float systemVolume = defaultRenderDevice?.AudioEndpointVolume?.MasterVolumeLevelScalar ?? 0f;
-                    
-                    var eventArgs = new AudioLevelEventArgs
-                    {
-                        SystemLevel = systemVolumeProvider.Volume,
-                        SystemGain = systemVolumeProvider.Volume,
-                        MicrophoneLevel = microphoneVolumeProvider.Volume,
-                        MicrophoneGain = microphoneVolumeProvider.Volume,
-                        SystemVolume = systemVolume,
-                        Status = "正常录制中"
-                    };
-                    
-                    AudioLevelChanged?.Invoke(this, eventArgs);
-                }
-                catch (Exception ex)
-                {
-                    // 忽略监控错误，不影响录制
-                    System.Diagnostics.Debug.WriteLine($"音频监控错误: {ex.Message}");
-                }
-            }, null, 1000, 1000); // 1秒后开始，每1秒更新一次
-        }
+        // 移除音频监控相关代码
 
         private (ISampleProvider systemProvider, ISampleProvider micProvider) BuildSimpleProcessingPipelines()
         {
@@ -262,9 +236,9 @@ namespace AudioRecorder
                 microphoneTimer = null;
 
                 // 停止监控时钟
-                monitoringTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
-                monitoringTimer?.Dispose();
-                monitoringTimer = null;
+                // monitoringTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite); // 移除旧的监控时钟
+                // monitoringTimer?.Dispose(); // 移除旧的监控时钟
+                // monitoringTimer = null; // 移除旧的监控时钟
 
                 // 停止音频捕获
                 systemAudioCapture?.StopRecording();
@@ -289,6 +263,13 @@ namespace AudioRecorder
                 systemVolumeProvider = null;
                 microphoneVolumeProvider = null;
 
+                // 重置电平
+                // lock (levelLock) // 移除旧的电平重置
+                // {
+                //     currentSystemLevel = 0f;
+                //     currentMicLevel = 0f;
+                // }
+
                 StatusChanged?.Invoke(this, "⏹ 录制已停止，文件已保存。");
             }
             catch (Exception ex)
@@ -304,16 +285,17 @@ namespace AudioRecorder
         }
     }
 
-    /// <summary>
-    /// 音频电平监控事件参数
-    /// </summary>
-    public class AudioLevelEventArgs : EventArgs
-    {
-        public float SystemLevel { get; set; }
-        public float SystemGain { get; set; }
-        public float MicrophoneLevel { get; set; }
-        public float MicrophoneGain { get; set; }
-        public float SystemVolume { get; set; }
-        public string Status { get; set; } = "";
-    }
+    // 移除音频电平监控事件参数类，不再需要
+    // /// <summary>
+    // /// 音频电平监控事件参数
+    // /// </summary>
+    // public class AudioLevelEventArgs : EventArgs
+    // {
+    //     public float SystemLevel { get; set; }
+    //     public float SystemGain { get; set; }
+    //     public float MicrophoneLevel { get; set; }
+    //     public float MicrophoneGain { get; set; }
+    //     public float SystemVolume { get; set; }
+    //     public string Status { get; set; } = "";
+    // }
 }

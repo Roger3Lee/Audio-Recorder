@@ -10,19 +10,15 @@ namespace AudioRecorder
         private SimpleWebSocketServer? webSocketServer;
         private Button btnRecord = null!;
         private Panel iconPanel = null!;
-        private ProgressBar pbSystemLevel = null!;
-        private ProgressBar pbMicLevel = null!;
-        private Label lblSystemLabel = null!;
-        private Label lblMicLabel = null!;
         private System.Windows.Forms.Timer uiUpdateTimer = null!;
         private System.Windows.Forms.Timer animationTimer = null!;
         private bool isRecording = false;
         private bool isExpanded = false;
         private Point collapsedLocation; // 记录收缩状态的位置
         
-        // 窗口尺寸常量 - 调整宽度为150px
+        // 窗口尺寸常量 - 调整为更小的尺寸
         private readonly Size CollapsedSize = new Size(30, 30);
-        private readonly Size ExpandedSize = new Size(150, 120); // 宽度改为150px，高度增加以容纳新布局
+        private readonly Size ExpandedSize = new Size(150, 60); // 移除音量条后调整高度为60px
         
         // 动画相关变量 - 优化动画参数
         private bool isAnimating = false;
@@ -85,7 +81,7 @@ namespace AudioRecorder
             btnRecord = new Button
             {
                 Size = new Size(130, 40), // 调整大小适应150px宽度
-                Location = new Point(10, 15),
+                Location = new Point(10, 10), // 调整Y位置为10，保持上下左右margin都为10px
                 BackColor = Color.FromArgb(76, 175, 80),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -100,58 +96,8 @@ namespace AudioRecorder
             btnRecord.Click += BtnRecord_Click;
             UpdateButtonText(); // 设置初始文本
 
-            // 系统音频标签
-            lblSystemLabel = new Label
-            {
-                Text = "系统",
-                Size = new Size(30, 15),
-                Location = new Point(10, 65),
-                Font = new Font("Microsoft YaHei", 8, FontStyle.Regular),
-                ForeColor = Color.FromArgb(108, 117, 125),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Visible = false
-            };
-
-            // 系统音频电平
-            pbSystemLevel = new ProgressBar
-            {
-                Size = new Size(100, 8), // 调整宽度适应150px窗口
-                Location = new Point(40, 67),
-                Style = ProgressBarStyle.Continuous,
-                ForeColor = Color.FromArgb(33, 150, 243),
-                BackColor = Color.FromArgb(222, 226, 230),
-                Maximum = 100,
-                Value = 0,
-                Visible = false
-            };
-
-            // 麦克风标签
-            lblMicLabel = new Label
-            {
-                Text = "麦克",
-                Size = new Size(30, 15),
-                Location = new Point(10, 85),
-                Font = new Font("Microsoft YaHei", 8, FontStyle.Regular),
-                ForeColor = Color.FromArgb(108, 117, 125),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Visible = false
-            };
-
-            // 麦克风电平
-            pbMicLevel = new ProgressBar
-            {
-                Size = new Size(100, 8), // 调整宽度适应150px窗口
-                Location = new Point(40, 87),
-                Style = ProgressBarStyle.Continuous,
-                ForeColor = Color.FromArgb(255, 152, 0),
-                BackColor = Color.FromArgb(222, 226, 230),
-                Maximum = 100,
-                Value = 0,
-                Visible = false
-            };
-
             // 添加控件
-            this.Controls.AddRange(new Control[] { iconPanel, btnRecord, lblSystemLabel, pbSystemLevel, lblMicLabel, pbMicLevel });
+            this.Controls.AddRange(new Control[] { iconPanel, btnRecord });
 
             // 窗口hover事件
             this.MouseEnter += DesktopRecorderWindow_MouseEnter;
@@ -201,7 +147,7 @@ namespace AudioRecorder
             recorder = new SimpleAudioRecorder();
             recorder.StatusChanged += OnStatusChanged;
             recorder.ErrorOccurred += OnErrorOccurred;
-            recorder.AudioLevelChanged += OnAudioLevelChanged;
+            // 移除音频电平监控：recorder.AudioLevelChanged += OnAudioLevelChanged;
         }
 
         private void InitializeWebSocket()
@@ -239,6 +185,12 @@ namespace AudioRecorder
             hoverCheckTimer = new System.Windows.Forms.Timer();
             hoverCheckTimer.Interval = HoverCheckInterval;
             hoverCheckTimer.Tick += HoverCheckTimer_Tick;
+            
+            // 添加状态同步Timer - 每秒检查一次状态同步
+            var stateSyncTimer = new System.Windows.Forms.Timer();
+            stateSyncTimer.Interval = 1000; // 每1秒检查一次
+            stateSyncTimer.Tick += (s, e) => SyncRecordingState();
+            stateSyncTimer.Start();
         }
 
         private void UiUpdateTimer_Tick(object? sender, EventArgs e)
@@ -305,10 +257,6 @@ namespace AudioRecorder
                 {
                     // 展开完成 - 显示详细控件
                     btnRecord.Visible = true;
-                    lblSystemLabel.Visible = true;
-                    pbSystemLevel.Visible = true;
-                    lblMicLabel.Visible = true;
-                    pbMicLevel.Visible = true;
                     iconPanel.Visible = false;
                     isExpanded = true;
                 }
@@ -316,10 +264,6 @@ namespace AudioRecorder
                 {
                     // 收缩完成 - 显示图标
                     btnRecord.Visible = false;
-                    lblSystemLabel.Visible = false;
-                    pbSystemLevel.Visible = false;
-                    lblMicLabel.Visible = false;
-                    pbMicLevel.Visible = false;
                     iconPanel.Visible = true;
                     isExpanded = false;
                 }
@@ -433,10 +377,6 @@ namespace AudioRecorder
             
             // 隐藏详细控件
             btnRecord.Visible = false;
-            lblSystemLabel.Visible = false;
-            pbSystemLevel.Visible = false;
-            lblMicLabel.Visible = false;
-            pbMicLevel.Visible = false;
             
             animationTimer.Start();
         }
@@ -476,11 +416,24 @@ namespace AudioRecorder
                 Invoke(new Action(() => OnStatusChanged(sender, status)));
                 return;
             }
-
-            // 同步录音状态
-            bool wasRecording = isRecording;
-            isRecording = status.Contains("录制") || status.Contains("Recording");
             
+            // 同步录音状态 - 更精确的状态检测
+            bool wasRecording = isRecording;
+            
+            // 检测开始录制的状态
+            if (status.Contains("录制已开始") || status.Contains("录制已在进行中") || 
+                status.Contains("Recording") || status.Contains("recording"))
+            {
+                isRecording = true;
+            }
+            // 检测停止录制的状态
+            else if (status.Contains("录制已停止") || status.Contains("停止") || 
+                     status.Contains("Stopped") || status.Contains("stopped"))
+            {
+                isRecording = false;
+            }
+            
+            // 如果状态发生变化，更新UI
             if (wasRecording != isRecording)
             {
                 UpdateButtonText();
@@ -506,7 +459,59 @@ namespace AudioRecorder
 
         private void OnWebSocketStatusChanged(object? sender, string message)
         {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => OnWebSocketStatusChanged(sender, message)));
+                return;
+            }
+            
             System.Diagnostics.Debug.WriteLine($"WebSocket: {message}");
+            
+            // 检查WebSocket消息中是否包含录音状态变化
+            if (message.Contains("客户端已连接"))
+            {
+                // 当有新客户端连接时，同步当前状态
+                SyncRecordingState();
+            }
+            else if (message.Contains("WebSocket命令：开始录制"))
+            {
+                // WebSocket命令开始录制
+                if (!isRecording)
+                {
+                    isRecording = true;
+                    UpdateButtonText();
+                    iconPanel.Invalidate();
+                }
+            }
+            else if (message.Contains("WebSocket命令：停止录制"))
+            {
+                // WebSocket命令停止录制
+                if (isRecording)
+                {
+                    isRecording = false;
+                    UpdateButtonText();
+                    iconPanel.Invalidate();
+                }
+            }
+        }
+        
+        // 新增方法：同步录音状态
+        private void SyncRecordingState()
+        {
+            if (recorder != null)
+            {
+                bool actualRecordingState = recorder.IsRecording;
+                if (isRecording != actualRecordingState)
+                {
+                    isRecording = actualRecordingState;
+                    UpdateButtonText();
+                    iconPanel.Invalidate();
+                    
+                    // 通知WebSocket客户端当前状态
+                    string command = isRecording ? "recording_started" : "recording_stopped";
+                    NotifyWebSocketClients(command, new { IsRecording = isRecording });
+                }
+            }
         }
 
         private void NotifyWebSocketClients(string command, object data)
@@ -533,41 +538,6 @@ namespace AudioRecorder
                     }
                 });
             }
-        }
-
-        private void OnAudioLevelChanged(object? sender, AudioLevelEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() => OnAudioLevelChanged(sender, e)));
-                return;
-            }
-
-            // 转换为分贝并映射到进度条
-            float systemDb = e.SystemLevel > 0 ? 20 * (float)Math.Log10(e.SystemLevel) : -80;
-            float micDb = e.MicrophoneLevel > 0 ? 20 * (float)Math.Log10(e.MicrophoneLevel) : -80;
-
-            // 将-60dB到0dB映射到0-100
-            int systemProgress = Math.Max(0, Math.Min(100, (int)((systemDb + 60) / 60 * 100)));
-            int micProgress = Math.Max(0, Math.Min(100, (int)((micDb + 60) / 60 * 100)));
-
-            pbSystemLevel.Value = systemProgress;
-            pbMicLevel.Value = micProgress;
-
-            // 根据电平调整颜色
-            if (systemProgress > 90)
-                pbSystemLevel.ForeColor = Color.FromArgb(220, 53, 69);
-            else if (systemProgress > 70)
-                pbSystemLevel.ForeColor = Color.FromArgb(255, 193, 7);
-            else
-                pbSystemLevel.ForeColor = Color.FromArgb(33, 150, 243);
-
-            if (micProgress > 90)
-                pbMicLevel.ForeColor = Color.FromArgb(220, 53, 69);
-            else if (micProgress > 70)
-                pbMicLevel.ForeColor = Color.FromArgb(255, 193, 7);
-            else
-                pbMicLevel.ForeColor = Color.FromArgb(255, 152, 0);
         }
 
         // 窗口拖动功能

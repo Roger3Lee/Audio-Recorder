@@ -205,6 +205,9 @@ namespace AudioRecorder
                 }
 
                 audioRecorder.StartRecording();
+                
+                // 通知状态变化
+                StatusChanged?.Invoke(this, "WebSocket命令：开始录制");
 
                 // 广播状态更新给所有客户端
                 await BroadcastStatusUpdate("recording_started", new { IsRecording = audioRecorder.IsRecording });
@@ -243,6 +246,9 @@ namespace AudioRecorder
                 }
 
                 audioRecorder.StopRecording();
+                
+                // 通知状态变化
+                StatusChanged?.Invoke(this, "WebSocket命令：停止录制");
 
                 // 广播状态更新给所有客户端
                 await BroadcastStatusUpdate("recording_stopped", new { IsRecording = audioRecorder.IsRecording });
