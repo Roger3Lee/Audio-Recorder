@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>录音控制测试</title>
+  <style>
+    body {
+      font-family: 'Microsoft YaHei', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background: #0056b3;
+    }
+
+    .btn.start {
+      background: #28a745;
+    }
+
+    .btn.start:hover {
+      background: #1e7e34;
+    }
+
+    .btn.stop {
+      background: #dc3545;
+    }
+
+    .btn.stop:hover {
+      background: #c82333;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-left: 4px solid #007bff;
+      border-radius: 5px;
+      min-height: 100px;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .connection-status {
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 15px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .connected {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .disconnected {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .connecting {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .message {
+      margin-bottom: 8px;
+      padding: 5px;
+      border-radius: 3px;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .message.info {
+      background: #cce7ff;
+      color: #004085;
+    }
+
+    .timestamp {
+      color: #6c757d;
+      font-size: 11px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🎙️ 录音控制测试</h1>
+
+    <div class="connection-status" id="connectionStatus">连接中...</div>
+
+    <div class="controls">
+      <button class="btn start" onclick="startRecording()">⏺ 开始录音</button>
+      <button class="btn stop" onclick="stopRecording()">⏹ 停止录音</button>
+      <button class="btn" onclick="getStatus()">📊 获取状态</button>
+      <button class="btn" onclick="clearLog()">🗑️ 清空日志</button>
+    </div>
+
+    <div class="status" id="statusLog">等待连接WebSocket服务器...</div>
+  </div>
+
+  <script>
+    let ws;
+    const statusLog = document.getElementById('statusLog');
+    const connectionStatus = document.getElementById('connectionStatus');
+
+    function updateConnectionStatus(status, className) {
+      connectionStatus.textContent = status;
+      connectionStatus.className = `connection-status ${className}`;
+    }
+
+    function addMessage(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+      messageDiv.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+      statusLog.appendChild(messageDiv);
+      statusLog.scrollTop = statusLog.scrollHeight;
+    }
+
+    function connect() {
+      updateConnectionStatus('连接中...', 'connecting');
+      ws = new WebSocket('ws://localhost:8080/ws');
+
+      ws.onopen = function () {
+        updateConnectionStatus('已连接', 'connected');
+        addMessage('✅ 已连接到WebSocket服务器', 'success');
+      };
+
+      ws.onmessage = function (event) {
+        try {
+          const message = JSON.parse(event.data);
+          const type = message.Success ? 'success' : 'error';
+          const icon = message.Success ? '✅' : '❌';
+
+          addMessage(`${icon} <strong>${message.Command}:</strong> ${message.Message}`, type);
+
+          if (message.Data) {
+            addMessage(`📄 数据: ${JSON.stringify(message.Data, null, 2)}`, 'info');
+          }
+        } catch (e) {
+          addMessage(`⚠️ 解析消息失败: ${event.data}`, 'error');
+        }
+      };
+
+      ws.onclose = function (event) {
+        updateConnectionStatus('已断开', 'disconnected');
+        addMessage(`❌ 连接已关闭 (代码: ${event.code}, 原因: ${event.reason})`, 'error');
+
+        // 5秒后自动重连
+        setTimeout(() => {
+          addMessage('🔄 尝试重新连接...', 'info');
+          connect();
+        }, 5000);
+      };
+
+      ws.onerror = function (error) {
+        updateConnectionStatus('连接错误', 'disconnected');
+        addMessage(`💥 WebSocket错误: ${error}`, 'error');
+      };
+    }
+
+    function sendCommand(command, data = null) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const message = {
+          Command: command,
+          Data: data,
+          Timestamp: new Date().toISOString()
+        };
+        ws.send(JSON.stringify(message));
+        addMessage(`📤 发送命令: ${command}`, 'info');
+      } else {
+        addMessage('❌ WebSocket未连接，无法发送命令', 'error');
+      }
+    }
+
+    function startRecording() {
+      sendCommand('start_recording');
+    }
+
+    function stopRecording() {
+      sendCommand('stop_recording');
+    }
+
+    function getStatus() {
+      sendCommand('get_status');
+    }
+
+    function clearLog() {
+      statusLog.innerHTML = '';
+    }
+
+    // 页面加载时自动连接
+    document.addEventListener('DOMContentLoaded', function () {
+      connect();
+    });
+
+    // 页面卸载时关闭连接
+    window.addEventListener('beforeunload', function () {
+      if (ws) {
+        ws.close();
+      }
+    });
+  </script>
+</body>
+
+</html>

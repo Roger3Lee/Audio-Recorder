@@ -23,6 +23,7 @@
     <Compile Remove="AudioRecorderEngine.cs" />
     <Compile Remove="MainForm.cs" />
     <Compile Remove="WebSocketServer.cs" />
+    <Compile Remove="AudioRecorderEngineAdapter.cs" />
   </ItemGroup>
 
   <ItemGroup>
