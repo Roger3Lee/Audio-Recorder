@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<Project Sdk="WixToolset.Sdk/4.0.0"> 
+  <PropertyGroup> 
+    <OutputName>AudioRecorder_Setup</OutputName> 
+    <OutputType>Package</OutputType> 
+    <TargetFramework>net8.0</TargetFramework> 
+  </PropertyGroup> 
+ 
+  <ItemGroup> 
+    <PackageReference Include="WixToolset.Sdk" Version="4.0.0" /> 
+  </ItemGroup> 
+ 
+  <ItemGroup> 
+    <Content Include="bin\Release\net8.0-windows\win-x64\publish\**\*" /> 
+  </ItemGroup> 
+  
+  <ItemGroup>
+    <WixSource Include="AudioRecorder.Setup.wxs" />
+  </ItemGroup>
+</Project> 

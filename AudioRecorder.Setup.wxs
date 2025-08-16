@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="AudioRecorder" Version="1.0.0" Manufacturer="AudioRecorder Team" Language="1033" UpgradeCode="12345678-1234-1234-1234-123456789012" Compressed="yes">
+    
+    <!-- 升级配置 - 防止重复安装 -->
+    <MajorUpgrade DowngradeErrorMessage="已安装更新版本的 AudioRecorder。请先卸载现有版本。" />
+    
+    <!-- 媒体配置 -->
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- 产品信息 -->
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/your-repo/audiorecorder" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/your-repo/audiorecorder" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPCONTACT" Value="AudioRecorder Team" />
+    <Property Id="ARPCOMMENTS" Value="桌面录音控制器 - 支持URL协议和WebSocket控制" />
+    
+    <!-- 安装界面配置 -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="启动 AudioRecorder" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    
+    <!-- 简化的安装界面 -->
+    <UI>
+      <!-- 欢迎页面 -->
+      <Dialog Id="WelcomeDlg" Width="370" Height="270" Title="欢迎使用 AudioRecorder 安装向导">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="下一步" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="取消" />
+        <Control Id="WelcomeTitle" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="欢迎使用 AudioRecorder 安装向导" />
+        <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="85" Transparent="yes" NoPrefix="yes" Text="此向导将指导您完成 AudioRecorder 的安装过程。点击"下一步"继续。" />
+      </Dialog>
+      
+      <!-- 安装路径选择页面 -->
+      <Dialog Id="InstallDirDlg" Width="370" Height="270" Title="选择安装位置">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="安装" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="上一步" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="取消" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="选择安装位置" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="35" Transparent="yes" NoPrefix="yes" Text="请选择 AudioRecorder 的安装位置，或者点击"安装"使用默认位置。" />
+        <Control Id="FolderLabel" Type="Text" X="25" Y="80" Width="290" Height="30" NoPrefix="yes" Text="默认安装路径: [ProgramFiles6432Folder]AudioRecorder" />
+      </Dialog>
+      
+      <!-- 完成页面 -->
+      <Dialog Id="ExitDialog" Width="370" Height="270" Title="安装完成">
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="完成" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="取消" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="安装完成" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="35" Transparent="yes" NoPrefix="yes" Text="AudioRecorder 安装向导已成功完成。" />
+        <Control Id="LaunchCheckBox" Type="CheckBox" X="25" Y="80" Width="280" Height="17" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOX" CheckBoxValue="1" Text="启动 AudioRecorder" />
+        <Control Id="FinishText" Type="Text" X="25" Y="110" Width="280" Height="85" Transparent="yes" NoPrefix="yes" Text="AudioRecorder 已成功安装！已注册 audiorecorder:// 协议，已创建快捷方式。" />
+      </Dialog>
+      
+      <!-- 对话框序列 -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="EndDialog" Value="Return">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return">1</Publish>
+    </UI>
+    
+    <!-- 安装序列 -->
+    <InstallUISequence>
+      <Show Dialog="WelcomeDlg" Before="InstallFiles">NOT Installed</Show>
+      <Show Dialog="ExitDialog" After="InstallFinalize">NOT Installed</Show>
+    </InstallUISequence>
+    
+    <!-- 功能组件 -->
+    <Feature Id="ProductFeature" Title="AudioRecorder" Level="1" Description="AudioRecorder 主程序">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+      <ComponentGroupRef Id="ProtocolComponents" />
+    </Feature>
+    
+    <!-- 安装目录结构 -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="AudioRecorder" />
+    </StandardDirectory>
+    
+    <!-- 开始菜单目录 -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="AudioRecorder" />
+    </StandardDirectory>
+    
+    <!-- 桌面目录 -->
+    <StandardDirectory Id="DesktopFolder" />
+    
+    <!-- 主程序组件 -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="MainExecutable" Name="AudioRecorder.exe" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\AudioRecorder.exe" />
+        
+        <!-- 注册表信息 - 用于检测已安装版本 -->
+        <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\AudioRecorder">
+          <RegistryValue Name="DisplayName" Value="AudioRecorder" Type="string" />
+          <RegistryValue Name="DisplayVersion" Value="1.0.0" Type="string" />
+          <RegistryValue Name="Publisher" Value="AudioRecorder Team" Type="string" />
+          <RegistryValue Name="InstallLocation" Value="[INSTALLFOLDER]" Type="string" />
+          <RegistryValue Name="UninstallString" Value="msiexec /x [ProductCode]" Type="string" />
+          <RegistryValue Name="DisplayIcon" Value="[INSTALLFOLDER]AudioRecorder.exe" Type="string" />
+          <RegistryValue Name="NoModify" Value="1" Type="integer" />
+          <RegistryValue Name="NoRepair" Value="1" Type="integer" />
+        </RegistryKey>
+        
+        <!-- 应用程序配置注册表 -->
+        <RegistryKey Root="HKCU" Key="Software\AudioRecorder">
+          <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
+          <RegistryValue Name="Version" Value="1.0.0" Type="string" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+    
+    <!-- 快捷方式组件 -->
+    <ComponentGroup Id="ShortcutComponents">
+      <!-- 开始菜单快捷方式 -->
+      <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="*">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="AudioRecorder"
+                  Target="[#MainExecutable]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <!-- 卸载快捷方式 -->
+        <Shortcut Id="UninstallShortcut"
+                  Name="卸载 AudioRecorder"
+                  Target="[SystemFolder]msiexec.exe"
+                  Arguments="/x [ProductCode]" />
+        
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        
+        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Shortcuts" 
+                       Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      
+      <!-- 桌面快捷方式 -->
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="*">
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Name="AudioRecorder"
+                  Target="[#MainExecutable]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Shortcuts" 
+                       Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+    
+    <!-- URL协议注册组件 -->
+    <ComponentGroup Id="ProtocolComponents" Directory="INSTALLFOLDER">
+      <Component Id="UrlProtocolRegistry" Guid="*">
+        <!-- 注册 audiorecorder:// 协议 -->
+        <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder">
+          <RegistryValue Value="AudioRecorder Protocol" Type="string" />
+          <RegistryValue Name="URL Protocol" Value="" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder\DefaultIcon">
+          <RegistryValue Value="[#MainExecutable],0" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder\shell">
+          <RegistryValue Value="open" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder\shell\open">
+          <RegistryValue Value="打开 AudioRecorder" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder\shell\open\command">
+          <RegistryValue Value='"[#MainExecutable]" "%1"' Type="string" />
+        </RegistryKey>
+        
+        <!-- 文件关联（可选：支持 .audiorecord 文件） -->
+        <RegistryKey Root="HKCU" Key="Software\Classes\.audiorecord">
+          <RegistryValue Value="AudioRecorder.Document" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\AudioRecorder.Document">
+          <RegistryValue Value="AudioRecorder 录音文件" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\AudioRecorder.Document\DefaultIcon">
+          <RegistryValue Value="[#MainExecutable],0" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\Classes\AudioRecorder.Document\shell\open\command">
+          <RegistryValue Value='"[#MainExecutable]" "%1"' Type="string" />
+        </RegistryKey>
+        
+        <!-- 应用程序注册 -->
+        <RegistryKey Root="HKCU" Key="Software\AudioRecorder\Capabilities">
+          <RegistryValue Name="ApplicationName" Value="AudioRecorder" Type="string" />
+          <RegistryValue Name="ApplicationDescription" Value="桌面录音控制器 - 支持URL协议控制" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\AudioRecorder\Capabilities\URLAssociations">
+          <RegistryValue Name="audiorecorder" Value="audiorecorder" Type="string" />
+        </RegistryKey>
+        
+        <RegistryKey Root="HKCU" Key="Software\AudioRecorder\Capabilities\FileAssociations">
+          <RegistryValue Name=".audiorecord" Value="AudioRecorder.Document" Type="string" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+    
+    <!-- 图标定义 -->
+    <Icon Id="AppIcon" SourceFile="icon.ico" />
+    
+  </Package>
+</Wix>
