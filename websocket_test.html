@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>录音控制测试</title>
+  <title>AudioRecorder 控制台</title>
   <style>
     body {
       font-family: 'Microsoft YaHei', Arial, sans-serif;
@@ -135,16 +135,24 @@
 
 <body>
   <div class="container">
-    <h1>🎙️ 录音控制测试</h1>
+    <h1>🎙️ AudioRecorder 控制台</h1>
+    
+    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+      通过 WebSocket 和 URL 协议控制 AudioRecorder 程序
+    </p>
 
     <div class="connection-status" id="connectionStatus">连接中...</div>
 
     <div class="controls">
+      <button class="btn" onclick="launchProgram()">🚀 启动程序</button>
+      <button class="btn" onclick="checkProgramStatus()">🔍 检测状态</button>
       <button class="btn start" onclick="startRecording()">⏺ 开始录音</button>
       <button class="btn stop" onclick="stopRecording()">⏹ 停止录音</button>
       <button class="btn" onclick="getStatus()">📊 获取状态</button>
       <button class="btn" onclick="clearLog()">🗑️ 清空日志</button>
     </div>
+    
+
 
     <div class="status" id="statusLog">等待连接WebSocket服务器...</div>
   </div>
@@ -240,9 +248,122 @@
       statusLog.innerHTML = '';
     }
 
+    function testProtocolLink(url) {
+      try {
+        addMessage(`🔗 测试协议链接: ${url}`, 'info');
+        
+        // 创建一个隐藏的链接并点击它来触发协议
+        const link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        addMessage('✅ 协议链接已触发', 'success');
+        
+        // 如果是启动命令，等待后尝试连接
+        if (url.includes('start')) {
+          setTimeout(() => {
+            if (!ws || ws.readyState === WebSocket.CLOSED) {
+              addMessage('🔄 尝试重新连接 WebSocket...', 'info');
+              connect();
+            }
+          }, 2000);
+        }
+        
+      } catch (error) {
+        addMessage(`❌ 协议测试失败: ${error.message}`, 'error');
+      }
+    }
+
+    function launchProgram() {
+      try {
+        // 尝试通过 audiorecorder:// 协议启动程序
+        const protocolUrl = 'audiorecorder://start';
+        addMessage('🚀 尝试启动 AudioRecorder 程序...', 'info');
+        
+        // 创建一个隐藏的链接并点击它来触发协议
+        const link = document.createElement('a');
+        link.href = protocolUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        addMessage('✅ 已发送启动命令，如果程序已安装且协议已注册，程序应该会启动', 'success');
+        addMessage('ℹ️ 如果程序没有启动，请确保：', 'info');
+        addMessage('   1. AudioRecorder 已正确安装', 'info');
+        addMessage('   2. audiorecorder:// 协议已注册', 'info');
+        addMessage('   3. 浏览器允许打开外部协议', 'info');
+        
+        // 等待一段时间后尝试连接
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.CONNECTING) {
+            addMessage('⏳ 程序可能正在启动，请稍候...', 'info');
+          } else if (!ws || ws.readyState === WebSocket.CLOSED) {
+            addMessage('🔄 尝试重新连接 WebSocket...', 'info');
+            connect();
+          }
+        }, 3000);
+        
+      } catch (error) {
+        addMessage(`❌ 启动程序失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 添加协议测试功能
+    function testProtocol() {
+      const protocols = [
+        { name: '启动程序', url: 'audiorecorder://' }
+      ];
+
+      addMessage('🧪 可用的协议测试:', 'info');
+      protocols.forEach(protocol => {
+        const link = `<a href="${protocol.url}" style="color: #007bff; text-decoration: underline;">${protocol.name}</a>`;
+        addMessage(`   ${link} - ${protocol.url}`, 'info');
+      });
+    }
+
+    // 检测程序是否运行
+    function checkProgramStatus() {
+      addMessage('🔍 检测程序状态...', 'info');
+      
+      // 尝试连接 WebSocket 来检测程序是否运行
+      const testWs = new WebSocket('ws://localhost:8080/ws');
+      
+      const timeout = setTimeout(() => {
+        testWs.close();
+        addMessage('❌ 程序未运行或 WebSocket 服务未启动', 'error');
+        addMessage('💡 请点击"启动程序"按钮启动 AudioRecorder', 'info');
+      }, 3000);
+      
+      testWs.onopen = function() {
+        clearTimeout(timeout);
+        testWs.close();
+        addMessage('✅ 程序正在运行，WebSocket 服务可用', 'success');
+      };
+      
+      testWs.onerror = function() {
+        clearTimeout(timeout);
+        addMessage('❌ 无法连接到程序，程序可能未运行', 'error');
+      };
+    }
+
     // 页面加载时自动连接
     document.addEventListener('DOMContentLoaded', function () {
-      connect();
+      // 首先检测程序状态
+      checkProgramStatus();
+      
+      // 然后尝试连接
+      setTimeout(() => {
+        connect();
+      }, 1000);
+      
+      // 显示协议测试信息
+      setTimeout(() => {
+        testProtocol();
+      }, 2000);
     });
 
     // 页面卸载时关闭连接
