@@ -4,6 +4,8 @@ using System.Threading;
 using NAudio.Wave;
 using NAudio.CoreAudioApi;
 using NAudio.Wave.SampleProviders;
+using AudioRecorder.Models;
+using AudioRecorder.Services;
 
 namespace AudioRecorder
 {
@@ -42,13 +44,21 @@ namespace AudioRecorder
         private const float MaxVolumeMultiplier = 5.0f; // 最大音量倍数
         private const float MinVolumeMultiplier = 0.1f; // 最小音量倍数
 
-        private readonly int targetSampleRate = 16000; // 修改为16000Hz语音采样率
-        private readonly int targetChannels = 1; // 修改为单声道
-        private readonly int targetBitsPerSample = 16; // 保持16位深度
+        private int targetSampleRate = 16000; // 修改为16000Hz语音采样率
+        private int targetChannels = 1; // 修改为单声道
+        private int targetBitsPerSample = 16; // 保持16位深度
 
         // 文件路径存储（用于上传）
         private string? currentSystemAudioPath;
         private string? currentMicrophonePath;
+
+        // 实时保存优化参数
+        private const int RealTimeBufferSize = 1024; // 实时缓冲区大小
+        private const int FlushIntervalMs = 50; // 刷新间隔（毫秒）
+        private System.Threading.Timer? flushTimer; // 文件刷新定时器
+        private readonly object fileWriteLock = new object(); // 文件写入锁
+        private long totalBytesWritten = 0; // 总写入字节数
+        private DateTime lastFlushTime = DateTime.Now; // 最后刷新时间
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<Exception>? ErrorOccurred;
@@ -67,6 +77,40 @@ namespace AudioRecorder
         public SimpleAudioRecorder()
         {
             Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "AudioRecordings"));
+            
+            // 从配置文件读取音频设置
+            LoadAudioSettings();
+        }
+
+        /// <summary>
+        /// 从配置文件加载音频设置
+        /// </summary>
+        private void LoadAudioSettings()
+        {
+            try
+            {
+                var config = ConfigurationService.Instance;
+                
+                // 更新音频参数
+                targetSampleRate = config.AudioSettings.SampleRate;
+                targetChannels = config.AudioSettings.Channels;
+                targetBitsPerSample = config.AudioSettings.BitsPerSample;
+                
+                // 更新实时保存参数
+                var realTimeConfig = config.RealTimeSaveSettings;
+                if (realTimeConfig.IsValid())
+                {
+                    Console.WriteLine($"📋 音频配置已加载: {realTimeConfig.GetSummary()}");
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ 实时保存配置无效，使用默认值");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ 加载音频配置失败: {ex.Message}，使用默认值");
+            }
         }
 
         public void StartRecording()
@@ -278,15 +322,25 @@ namespace AudioRecorder
             // 构建简化的处理管道
             var (systemProvider, micProvider) = BuildSimpleProcessingPipelines();
             
-            // 更保守的处理频率，基于16000Hz单声道
-            int intervalMilliseconds = 100; // 提高到100ms，更稳定
+            // 从配置文件读取实时保存设置
+            var realTimeConfig = ConfigurationService.Instance.RealTimeSaveSettings;
+            int intervalMilliseconds = realTimeConfig.EnableRealTimeSave ? 
+                realTimeConfig.ProcessingIntervalMs : 100; // 如果禁用实时保存，使用100ms
+            
             var systemBuffer = new float[systemProvider.WaveFormat.SampleRate * systemProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
             var micBuffer = new float[micProvider.WaveFormat.SampleRate * micProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
             
             System.Diagnostics.Debug.WriteLine($"音频缓冲区 - 系统: {systemBuffer.Length}样本, 麦克风: {micBuffer.Length}样本");
             System.Diagnostics.Debug.WriteLine($"音频格式 - 采样率: {targetSampleRate}Hz, 声道: {targetChannels}, 位深: {targetBitsPerSample}bit");
+            System.Diagnostics.Debug.WriteLine($"实时处理间隔: {intervalMilliseconds}ms, 文件刷新间隔: {realTimeConfig.FlushIntervalMs}ms");
             
-            // 系统音频处理时钟
+            // 如果启用实时保存，启动文件刷新定时器
+            if (realTimeConfig.EnableRealTimeSave)
+            {
+                StartFileFlushTimer(realTimeConfig);
+            }
+            
+            // 系统音频处理时钟 - 实时保存优化
             systemAudioTimer = new System.Threading.Timer(state =>
             {
                 if (!isRecording) return;
@@ -295,7 +349,19 @@ namespace AudioRecorder
                     int samplesRead = systemProvider.Read(systemBuffer, 0, systemBuffer.Length);
                     if (samplesRead > 0)
                     {
-                        systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                        if (realTimeConfig.EnableRealTimeSave)
+                        {
+                            lock (fileWriteLock)
+                            {
+                                systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                                totalBytesWritten += samplesRead * 4; // 4 bytes per float sample
+                            }
+                        }
+                        else
+                        {
+                            // 如果禁用实时保存，使用传统写入方式
+                            systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -304,7 +370,7 @@ namespace AudioRecorder
                 }
             }, null, 0, intervalMilliseconds);
             
-            // 麦克风音频处理时钟
+            // 麦克风音频处理时钟 - 实时保存优化
             microphoneTimer = new System.Threading.Timer(state =>
             {
                 if (!isRecording) return;
@@ -313,7 +379,19 @@ namespace AudioRecorder
                     int samplesRead = micProvider.Read(micBuffer, 0, micBuffer.Length);
                     if (samplesRead > 0)
                     {
-                        microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                        if (realTimeConfig.EnableRealTimeSave)
+                        {
+                            lock (fileWriteLock)
+                            {
+                                microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                                totalBytesWritten += samplesRead * 4; // 4 bytes per float sample
+                            }
+                        }
+                        else
+                        {
+                            // 如果禁用实时保存，使用传统写入方式
+                            microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -321,6 +399,69 @@ namespace AudioRecorder
                     ErrorOccurred?.Invoke(this, new Exception("麦克风音频处理错误", ex));
                 }
             }, null, 0, intervalMilliseconds);
+        }
+
+        /// <summary>
+        /// 启动文件刷新定时器，确保音频数据及时写入硬盘
+        /// </summary>
+        private void StartFileFlushTimer(RealTimeSaveSettings config)
+        {
+            flushTimer = new System.Threading.Timer(state =>
+            {
+                if (!isRecording) return;
+                
+                try
+                {
+                    FlushAudioFiles(config);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"文件刷新错误: {ex.Message}");
+                }
+            }, null, config.FlushIntervalMs, config.FlushIntervalMs);
+            
+            StatusChanged?.Invoke(this, $"💾 实时保存已启动 - 刷新间隔: {config.FlushIntervalMs}ms");
+        }
+
+        /// <summary>
+        /// 刷新音频文件，确保数据写入硬盘
+        /// </summary>
+        private void FlushAudioFiles(RealTimeSaveSettings config)
+        {
+            lock (fileWriteLock)
+            {
+                try
+                {
+                    // 刷新系统音频文件
+                    if (systemAudioWriter != null)
+                    {
+                        systemAudioWriter.Flush();
+                    }
+                    
+                    // 刷新麦克风音频文件
+                    if (microphoneAudioWriter != null)
+                    {
+                        microphoneAudioWriter.Flush();
+                    }
+                    
+                    // 更新统计信息
+                    var now = DateTime.Now;
+                    var timeSinceLastFlush = (now - lastFlushTime).TotalMilliseconds;
+                    var bytesPerSecond = timeSinceLastFlush > 0 ? (totalBytesWritten * 1000 / timeSinceLastFlush) : 0;
+                    
+                    // 每5秒输出一次统计信息
+                    if (timeSinceLastFlush >= config.StatusUpdateIntervalMs)
+                    {
+                        StatusChanged?.Invoke(this, $"💾 实时保存状态 - 写入速度: {bytesPerSecond / 1024:F1} KB/s, 总写入: {totalBytesWritten / 1024:F1} KB");
+                        lastFlushTime = now;
+                        totalBytesWritten = 0; // 重置计数器
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"刷新音频文件失败: {ex.Message}");
+                }
+            }
         }
 
         // 移除音频监控相关代码
@@ -400,6 +541,11 @@ namespace AudioRecorder
                 volumeBalanceTimer?.Dispose();
                 volumeBalanceTimer = null;
 
+                // 停止文件刷新定时器
+                flushTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                flushTimer?.Dispose();
+                flushTimer = null;
+
                 // 停止音频捕获
                 systemAudioCapture?.StopRecording();
                 microphoneCapture?.StopRecording();
@@ -460,6 +606,29 @@ namespace AudioRecorder
                 systemAudioTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
                 microphoneTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
                 volumeBalanceTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                
+                // 暂停文件刷新定时器
+                flushTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                
+                // 清空音频缓冲区，避免恢复时播放暂停期间积累的数据
+                if (systemAudioBuffer != null)
+                {
+                    systemAudioBuffer.ClearBuffer();
+                }
+                if (microphoneBuffer != null)
+                {
+                    microphoneBuffer.ClearBuffer();
+                }
+                
+                // 强制刷新音频文件，确保暂停前的数据写入硬盘
+                if (systemAudioWriter != null)
+                {
+                    systemAudioWriter.Flush();
+                }
+                if (microphoneAudioWriter != null)
+                {
+                    microphoneAudioWriter.Flush();
+                }
 
                 StatusChanged?.Invoke(this, "⏸ 录制已暂停");
             }
@@ -481,10 +650,111 @@ namespace AudioRecorder
                 systemAudioCapture?.StartRecording();
                 microphoneCapture?.StartRecording();
                 
-                // 恢复处理时钟
-                systemAudioTimer?.Change(0, 10);  // 每10ms处理一次
-                microphoneTimer?.Change(0, 10);   // 每10ms处理一次
-                volumeBalanceTimer?.Change(0, 500); // 每500ms调整一次音量平衡
+                // 重新构建音频处理管道，确保状态一致
+                var (systemProvider, micProvider) = BuildSimpleProcessingPipelines();
+                
+                // 从配置文件读取正确的处理间隔
+                var realTimeConfig = ConfigurationService.Instance.RealTimeSaveSettings;
+                int intervalMilliseconds = realTimeConfig.EnableRealTimeSave ? 
+                    realTimeConfig.ProcessingIntervalMs : 100; // 如果禁用实时保存，使用100ms
+                
+                // 重新创建音频缓冲区，确保大小正确
+                var systemBuffer = new float[systemProvider.WaveFormat.SampleRate * systemProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
+                var micBuffer = new float[micProvider.WaveFormat.SampleRate * micProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
+                
+                // 重新启动处理时钟，使用新的处理管道和缓冲区
+                if (systemAudioTimer != null)
+                {
+                    systemAudioTimer.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                    systemAudioTimer.Dispose();
+                }
+                
+                if (microphoneTimer != null)
+                {
+                    microphoneTimer.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                    microphoneTimer.Dispose();
+                }
+                
+                // 创建新的处理时钟
+                systemAudioTimer = new System.Threading.Timer(state =>
+                {
+                    if (!isRecording || isPaused) return;
+                    try
+                    {
+                        int samplesRead = systemProvider.Read(systemBuffer, 0, systemBuffer.Length);
+                        if (samplesRead > 0)
+                        {
+                            if (realTimeConfig.EnableRealTimeSave)
+                            {
+                                lock (fileWriteLock)
+                                {
+                                    systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                                    totalBytesWritten += samplesRead * 4; // 4 bytes per float sample
+                                }
+                            }
+                            else
+                            {
+                                systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorOccurred?.Invoke(this, new Exception("系统音频处理错误", ex));
+                    }
+                }, null, 0, intervalMilliseconds);
+                
+                microphoneTimer = new System.Threading.Timer(state =>
+                {
+                    if (!isRecording || isPaused) return;
+                    try
+                    {
+                        int samplesRead = micProvider.Read(micBuffer, 0, micBuffer.Length);
+                        if (samplesRead > 0)
+                        {
+                            if (realTimeConfig.EnableRealTimeSave)
+                            {
+                                lock (fileWriteLock)
+                                {
+                                    microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                                    totalBytesWritten += samplesRead * 4; // 4 bytes per float sample
+                                }
+                            }
+                            else
+                            {
+                                microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorOccurred?.Invoke(this, new Exception("麦克风音频处理错误", ex));
+                    }
+                }, null, 0, intervalMilliseconds);
+                
+                // 恢复音量平衡时钟
+                volumeBalanceTimer?.Change(2000, 1000); // 2秒后开始，每1秒调整一次音量平衡
+                
+                // 恢复音量设置，确保音频效果一致
+                if (systemVolumeProvider != null)
+                {
+                    systemVolumeProvider.Volume = 0.8f * systemVolumeMultiplier;
+                }
+                if (microphoneVolumeProvider != null)
+                {
+                    microphoneVolumeProvider.Volume = 1.0f * micVolumeMultiplier;
+                }
+                
+                // 如果启用实时保存，重新启动文件刷新定时器
+                if (realTimeConfig.EnableRealTimeSave)
+                {
+                    if (flushTimer != null)
+                    {
+                        flushTimer.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                        flushTimer.Dispose();
+                    }
+                    StartFileFlushTimer(realTimeConfig);
+                }
 
                 StatusChanged?.Invoke(this, "▶ 录制已恢复");
             }
@@ -500,6 +770,36 @@ namespace AudioRecorder
         {
             StopRecording();
             GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// 获取实时保存状态信息
+        /// </summary>
+        public string GetRealTimeSaveStatus()
+        {
+            if (!isRecording)
+            {
+                return "💾 实时保存已停止";
+            }
+
+            var now = DateTime.Now;
+            var timeSinceLastFlush = (now - lastFlushTime).TotalMilliseconds;
+            var bytesPerSecond = timeSinceLastFlush > 0 ? (totalBytesWritten * 1000 / timeSinceLastFlush) : 0;
+            
+            return $"💾 实时保存中 - 写入速度: {bytesPerSecond / 1024:F1} KB/s, 总写入: {totalBytesWritten / 1024:F1} KB, 刷新间隔: {FlushIntervalMs}ms";
+        }
+
+        /// <summary>
+        /// 强制刷新音频文件到硬盘
+        /// </summary>
+        public void ForceFlushAudioFiles()
+        {
+            if (isRecording)
+            {
+                var config = ConfigurationService.Instance.RealTimeSaveSettings;
+                FlushAudioFiles(config);
+                StatusChanged?.Invoke(this, "💾 已强制刷新音频文件到硬盘");
+            }
         }
     }
 

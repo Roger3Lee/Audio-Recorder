@@ -18,6 +18,8 @@ namespace AudioRecorder.Services
         
         public UploadSettings UploadSettings { get; private set; }
         public OAuthSettings OAuthSettings { get; private set; }
+        public AudioSettings AudioSettings { get; private set; }
+        public RealTimeSaveSettings RealTimeSaveSettings { get; private set; }
 
         private ConfigurationService()
         {
@@ -61,6 +63,8 @@ namespace AudioRecorder.Services
                     {
                         UploadSettings = config.UploadSettings ?? new UploadSettings();
                         OAuthSettings = config.OAuthSettings ?? new OAuthSettings();
+                        AudioSettings = config.AudioSettings ?? new AudioSettings();
+                        RealTimeSaveSettings = config.RealTimeSaveSettings ?? new RealTimeSaveSettings();
                         
                         _logger.LogInformation($"配置文件加载成功: {configPath}", "ConfigurationService");
                         _logger.LogInformation($"OAuth认证状态: {(OAuthSettings.EnableAuthentication ? "已启用" : "已禁用")}", "ConfigurationService");
@@ -78,6 +82,8 @@ namespace AudioRecorder.Services
                     {
                         UploadSettings = new UploadSettings();
                         OAuthSettings = new OAuthSettings();
+                        AudioSettings = new AudioSettings();
+                        RealTimeSaveSettings = new RealTimeSaveSettings();
                         _logger.LogWarning("配置文件解析失败，使用默认配置", "ConfigurationService");
                     }
                 }
@@ -85,6 +91,8 @@ namespace AudioRecorder.Services
                 {
                     UploadSettings = new UploadSettings();
                     OAuthSettings = new OAuthSettings();
+                    AudioSettings = new AudioSettings();
+                    RealTimeSaveSettings = new RealTimeSaveSettings();
                     _logger.LogWarning($"配置文件不存在: {configPath}，使用默认配置", "ConfigurationService");
                 }
             }
@@ -93,6 +101,8 @@ namespace AudioRecorder.Services
                 _logger.LogError($"加载配置文件失败: {ex.Message}", "ConfigurationService", ex);
                 UploadSettings = new UploadSettings();
                 OAuthSettings = new OAuthSettings();
+                AudioSettings = new AudioSettings();
+                RealTimeSaveSettings = new RealTimeSaveSettings();
             }
         }
 
@@ -188,7 +198,9 @@ namespace AudioRecorder.Services
                 var config = new AppConfig
                 {
                     UploadSettings = UploadSettings,
-                    OAuthSettings = OAuthSettings
+                    OAuthSettings = OAuthSettings,
+                    AudioSettings = AudioSettings,
+                    RealTimeSaveSettings = RealTimeSaveSettings
                 };
 
                 var options = new JsonSerializerOptions
@@ -399,6 +411,8 @@ namespace AudioRecorder.Services
     {
         public UploadSettings? UploadSettings { get; set; }
         public OAuthSettings? OAuthSettings { get; set; }
+        public AudioSettings? AudioSettings { get; set; }
+        public RealTimeSaveSettings? RealTimeSaveSettings { get; set; }
         public WindowPosition? WindowPosition { get; set; }
     }
 

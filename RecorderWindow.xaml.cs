@@ -456,8 +456,21 @@ namespace AudioRecorder
         // 确认停止录音按钮点击
         private void ConfirmStopButton_Click(object sender, RoutedEventArgs e)
         {
-            HideStopConfirmOverlay();
-            ExecuteStopRecording();
+            try
+            {
+                // 隐藏确认覆盖层
+                HideStopConfirmOverlay();
+                
+                // 执行停止录音
+                ExecuteStopRecording();
+                
+                // 上传在后台静默执行，不显示状态
+                // 录音停止后，ExecuteStopRecording会自动调用AutoUploadRecordingFiles
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 停止录音失败: {ex.Message}");
+            }
         }
 
         // 取消停止录音按钮点击
