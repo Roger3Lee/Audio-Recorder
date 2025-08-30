@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioRecorder 上传功能测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .section h3 {
+            color: #555;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"], input[type="url"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .config-display {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .config-display pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 AudioRecorder 上传功能测试</h1>
+        
+        <!-- 录音控制测试 -->
+        <div class="section">
+            <h3>📹 录音控制测试</h3>
+            <p>通过WebSocket控制录音的开始和停止：</p>
+            <button class="btn btn-success" onclick="startRecording()">开始录音</button>
+            <button class="btn btn-danger" onclick="stopRecording()">停止录音</button>
+            <button class="btn" onclick="getStatus()">获取状态</button>
+        </div>
+
+        <!-- 上传配置测试 -->
+        <div class="section">
+            <h3>⚙️ 上传配置测试</h3>
+            <div class="form-group">
+                <label for="serverUrl">服务器地址:</label>
+                <input type="url" id="serverUrl" value="http://10.10.21.67:38080" placeholder="输入服务器地址">
+            </div>
+            <div class="form-group">
+                <label for="apiEndpoint">API端点:</label>
+                <input type="text" id="apiEndpoint" value="/admin-api/asr/file/upload-multiple" placeholder="输入API端点">
+            </div>
+            <div class="form-group">
+                <label for="authToken">授权令牌:</label>
+                <input type="text" id="authToken" value="01809869aa1b4c98903495da6e00e11c" placeholder="输入授权令牌">
+            </div>
+            <div class="form-group">
+                <label for="bizType">业务类型:</label>
+                <input type="text" id="bizType" value="asr" placeholder="输入业务类型">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="mergeAudio" checked> 合并音频
+                </label>
+            </div>
+            <button class="btn" onclick="testUploadConfig()">测试上传配置</button>
+            <button class="btn" onclick="updateConfig()">更新配置</button>
+        </div>
+
+        <!-- 手动上传测试 -->
+        <div class="section">
+            <h3>📤 手动上传测试</h3>
+            <p>选择音频文件进行手动上传测试：</p>
+            <div class="form-group">
+                <label for="systemAudioFile">系统音频文件:</label>
+                <input type="file" id="systemAudioFile" accept=".wav,.mp3,.m4a">
+            </div>
+            <div class="form-group">
+                <label for="microphoneFile">麦克风音频文件:</label>
+                <input type="file" id="microphoneFile" accept=".wav,.mp3,.m4a">
+            </div>
+            <button class="btn btn-success" onclick="uploadFiles()">上传文件</button>
+        </div>
+
+        <!-- 状态显示 -->
+        <div id="status" class="status" style="display: none;"></div>
+
+        <!-- 配置显示 -->
+        <div class="section">
+            <h3>📋 当前配置</h3>
+            <button class="btn" onclick="loadCurrentConfig()">加载当前配置</button>
+            <div id="configDisplay" class="config-display" style="display: none;"></div>
+        </div>
+
+        <!-- 日志显示 -->
+        <div class="section">
+            <h3>📝 操作日志</h3>
+            <button class="btn" onclick="clearLog()">清空日志</button>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+
+        // 初始化WebSocket连接
+        function initWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            ws = new WebSocket('ws://localhost:8080/ws');
+            
+            ws.onopen = function() {
+                isConnected = true;
+                log('✅ WebSocket连接已建立', 'success');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`📨 收到消息: ${JSON.stringify(data, null, 2)}`, 'info');
+                } catch (e) {
+                    log(`📨 收到消息: ${event.data}`, 'info');
+                }
+            };
+            
+            ws.onclose = function() {
+                isConnected = false;
+                log('❌ WebSocket连接已关闭', 'error');
+            };
+            
+            ws.onerror = function(error) {
+                log(`❌ WebSocket错误: ${error}`, 'error');
+            };
+        }
+
+        // 录音控制函数
+        function startRecording() {
+            if (!isConnected) {
+                initWebSocket();
+                setTimeout(() => startRecording(), 1000);
+                return;
+            }
+            
+            const message = {
+                Command: "start_recording"
+            };
+            ws.send(JSON.stringify(message));
+            log('🚀 发送开始录音命令', 'info');
+        }
+
+        function stopRecording() {
+            if (!isConnected) {
+                initWebSocket();
+                setTimeout(() => stopRecording(), 1000);
+                return;
+            }
+            
+            const message = {
+                Command: "stop_recording"
+            };
+            ws.send(JSON.stringify(message));
+            log('⏹ 发送停止录音命令', 'info');
+        }
+
+        function getStatus() {
+            if (!isConnected) {
+                initWebSocket();
+                setTimeout(() => getStatus(), 1000);
+                return;
+            }
+            
+            const message = {
+                Command: "get_status"
+            };
+            ws.send(JSON.stringify(message));
+            log('📊 发送获取状态命令', 'info');
+        }
+
+        // 上传配置测试
+        function testUploadConfig() {
+            const config = {
+                serverUrl: document.getElementById('serverUrl').value,
+                apiEndpoint: document.getElementById('apiEndpoint').value,
+                authToken: document.getElementById('authToken').value,
+                bizType: document.getElementById('bizType').value,
+                mergeAudio: document.getElementById('mergeAudio').checked
+            };
+            
+            log(`🧪 测试上传配置: ${JSON.stringify(config, null, 2)}`, 'info');
+            
+            // 这里可以添加实际的配置测试逻辑
+            showStatus('配置测试完成', 'success');
+        }
+
+        function updateConfig() {
+            const config = {
+                serverUrl: document.getElementById('serverUrl').value,
+                apiEndpoint: document.getElementById('apiEndpoint').value,
+                authToken: document.getElementById('authToken').value,
+                bizType: document.getElementById('bizType').value,
+                mergeAudio: document.getElementById('mergeAudio').checked
+            };
+            
+            log(`⚙️ 更新配置: ${JSON.stringify(config, null, 2)}`, 'info');
+            
+            // 这里可以添加实际的配置更新逻辑
+            showStatus('配置已更新', 'success');
+        }
+
+        // 手动上传测试
+        function uploadFiles() {
+            const systemAudioFile = document.getElementById('systemAudioFile').files[0];
+            const microphoneFile = document.getElementById('microphoneFile').files[0];
+            
+            if (!systemAudioFile || !microphoneFile) {
+                showStatus('请选择两个音频文件', 'error');
+                return;
+            }
+            
+            log(`📤 准备上传文件: 系统音频=${systemAudioFile.name}, 麦克风=${microphoneFile.name}`, 'info');
+            
+            // 这里可以添加实际的文件上传逻辑
+            showStatus('文件上传功能测试完成', 'success');
+        }
+
+        // 加载当前配置
+        function loadCurrentConfig() {
+            const config = {
+                serverUrl: document.getElementById('serverUrl').value,
+                apiEndpoint: document.getElementById('apiEndpoint').value,
+                authToken: document.getElementById('authToken').value,
+                bizType: document.getElementById('bizType').value,
+                mergeAudio: document.getElementById('mergeAudio').checked
+            };
+            
+            const configDisplay = document.getElementById('configDisplay');
+            configDisplay.innerHTML = `<pre>${JSON.stringify(config, null, 2)}</pre>`;
+            configDisplay.style.display = 'block';
+            
+            log('📋 当前配置已加载', 'info');
+        }
+
+        // 工具函数
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.className = type;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function() {
+            log('🚀 AudioRecorder上传功能测试页面已加载', 'success');
+            initWebSocket();
+        };
+    </script>
+</body>
+</html>

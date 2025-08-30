@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>录音界面设计预览</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        .preview-container {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .modal-container {
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        /* 模态一样式 - 200x48px */
+        .modal1 {
+            width: 200px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0;
+        }
+
+        .modal1-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .modal1-record-btn, .modal1-stop-btn, .modal1-expand-btn {
+            width: 35px;
+            height: 35px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px;
+        }
+
+        .modal1-separator {
+            width: 1px;
+            height: 35px;
+            background-color: #bdc3c7;
+            margin: 0 3px;
+        }
+
+        .modal1-status {
+            width: 60px;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            padding: 0 3px;
+            font-weight: 500;
+        }
+
+        /* 模态二样式 - 200x200px */
+        .modal2 {
+            width: 200px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .modal2-header {
+            height: 30px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 2px 5px 0 0;
+            gap: 0px;
+        }
+
+        .modal2-title-btn {
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        .modal2-status {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin: 20px 0;
+        }
+
+        .modal2-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .modal2-record-btn, .modal2-stop-btn {
+            width: 60px;
+            height: 60px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* SVG图标样式 */
+        .icon {
+            width: 100%;
+            height: 100%;
+        }
+
+        .icon-35 { width: 35px; height: 35px; }
+        .icon-50 { width: 50px; height: 50px; }
+        .icon-16 { width: 16px; height: 16px; }
+
+        /* 状态指示 */
+        .status-recording { color: #e74c3c; }
+        .status-paused { color: #f39c12; }
+        .status-stopped { color: #666; }
+
+        /* 控制面板 */
+        .controls {
+            margin: 20px 0;
+        }
+
+        .control-btn {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .control-btn:hover {
+            background: #2980b9;
+        }
+
+        .title {
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>录音界面设计预览</h1>
+    <p>按照 <strong>Req3_windows_design.md</strong> 设计的两个模态界面预览</p>
+
+    <div class="preview-container">
+        <!-- 模态一预览 -->
+        <div>
+            <div class="title">模态一 (200×50px) - 紧凑模式</div>
+            <div class="modal-container modal1" id="modal1">
+                <div class="modal1-content">
+                    <!-- 状态标签 - 最左边 -->
+                    <div class="modal1-status" id="modal1-status">未开始</div>
+                    
+                    <!-- 录音/暂停按钮 -->
+                    <button class="modal1-record-btn" onclick="toggleRecording()">
+                        <svg class="icon icon-35" id="modal1-record-icon" viewBox="0 0 24 24" fill="none">
+                            <!-- 开始录音图标 - 播放三角形，绿色 -->
+                            <path d="M8 6V18L18 12L8 6Z" fill="#27AE60" stroke="#229954" stroke-width="1"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- 停止按钮 -->
+                    <button class="modal1-stop-btn" onclick="stopRecording()">
+                        <svg class="icon icon-35" viewBox="0 0 24 24" fill="none">
+                            <!-- 停止图标 - 方形 -->
+                            <rect x="6" y="6" width="12" height="12" rx="2" fill="#000000"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- 分隔线 -->
+                    <div class="modal1-separator"></div>
+                    
+                    <!-- 展开按钮 -->
+                    <button class="modal1-expand-btn" onclick="expandToModal2()">
+                        <svg class="icon icon-35" viewBox="0 0 24 24" fill="none">
+                            <!-- 展开图标 - 对角双箭头 -->
+                            <path d="M6 6L6 10M6 6L10 6" stroke="#000000" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M18 18L18 14M18 18L14 18" stroke="#000000" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="info">点击展开按钮切换到模态二</div>
+        </div>
+
+        <!-- 模态二预览 -->
+        <div>
+            <div class="title">模态二 (200×200px) - 完整模式</div>
+            <div class="modal-container modal2" id="modal2">
+                <!-- 标题栏 -->
+                <div class="modal2-header">
+                    <!-- 最小化按钮 -->
+                    <button class="modal2-title-btn" onclick="minimizeToModal1()">
+                        <svg class="icon-20" viewBox="0 0 24 24" fill="none">
+                            <!-- 最小化图标 -->
+                            <line x1="7" y1="12" x2="17" y2="12" stroke="#000000" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- 关闭按钮 -->
+                    <button class="modal2-title-btn" onclick="closeWindow()">
+                        <svg class="icon-20" viewBox="0 0 24 24" fill="none">
+                            <!-- 关闭图标 -->
+                            <line x1="7" y1="7" x2="17" y2="17" stroke="#000000" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="17" y1="7" x2="7" y2="17" stroke="#000000" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- 状态标签 -->
+                <div class="modal2-status" id="modal2-status">未开始</div>
+                
+                <!-- 录音控制按钮 -->
+                <div class="modal2-controls">
+                    <!-- 录音/暂停按钮 -->
+                    <button class="modal2-record-btn" onclick="toggleRecording()">
+                        <svg class="icon icon-50" id="modal2-record-icon" viewBox="0 0 24 24" fill="none">
+                            <!-- 开始录音图标，绿色 -->
+                            <path d="M8 6V18L18 12L8 6Z" fill="#27AE60" stroke="#229954" stroke-width="1"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- 停止按钮 -->
+                    <button class="modal2-stop-btn" onclick="stopRecording()">
+                        <svg class="icon icon-50" viewBox="0 0 24 24" fill="none">
+                            <!-- 停止图标 -->
+                            <rect x="6" y="6" width="12" height="12" rx="2" fill="#000000"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="info">点击最小化按钮切换到模态一</div>
+        </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="controls">
+        <h3>测试控制面板</h3>
+        <button class="control-btn" onclick="toggleRecording()">切换录音/暂停</button>
+        <button class="control-btn" onclick="stopRecording()">停止录音（回到未开始）</button>
+        <button class="control-btn" onclick="switchModal()">切换模态</button>
+        <button class="control-btn" onclick="resetState()">重置到未开始</button>
+        
+        <!-- 状态显示 -->
+        <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            <strong>当前状态:</strong> 
+            <span id="current-status" style="color: #2c3e50; font-weight: bold;">未开始</span>
+        </div>
+    </div>
+
+    <!-- 状态说明 -->
+    <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+        <h3>设计说明</h3>
+        <ul>
+            <li><strong>模态一 (200×50px)</strong>: 状态标签(最左边) + 录音(35×35) + 停止(35×35) + 分隔线 + 展开(35×35)</li>
+            <li><strong>模态二 (200×200px)</strong>: 右上角控制按钮(25×25) + 状态标签 + 大录音控制按钮(60×60，下移)</li>
+            <li><strong>状态切换</strong>: 未开始→录音中→已暂停→录音中，点击停止回到未开始</li>
+            <li><strong>图标颜色</strong>: 未开始/已暂停显示绿色播放▶，录音中显示橙色暂停⏸</li>
+            <li><strong>真实SVG</strong>: 使用实际的SVG图标文件，确保高清显示</li>
+        </ul>
+        
+        <h4>状态转换流程：</h4>
+        <div style="background: white; padding: 15px; border-radius: 5px; margin-top: 10px;">
+            <code style="color: #2c3e50;">
+                未开始 →[点击录音]→ 录音中 →[点击暂停]→ 已暂停 →[点击录音]→ 录音中<br>
+                任何状态 →[点击停止]→ <strong>未开始</strong>
+            </code>
+        </div>
+    </div>
+
+    <script>
+        let isRecording = false;
+        let isPaused = false;
+        let currentModal = 1; // 1=模态一, 2=模态二
+
+        // 更新界面状态
+        function updateUI() {
+            let statusText, iconContent;
+            
+            if (isRecording && !isPaused) {
+                statusText = "记录中...";
+                iconContent = `<svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <rect x="8" y="6" width="3" height="12" rx="1.5" fill="#F39C12"/>
+                    <rect x="13" y="6" width="3" height="12" rx="1.5" fill="#F39C12"/>
+                </svg>`;
+            } else if (isPaused) {
+                statusText = "已暂停";
+                iconContent = `<svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 6V18L18 12L8 6Z" fill="#27AE60" stroke="#229954" stroke-width="1"/>
+                </svg>`;
+            } else {
+                statusText = "未开始";
+                iconContent = `<svg class="icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 6V18L18 12L8 6Z" fill="#27AE60" stroke="#229954" stroke-width="1"/>
+                </svg>`;
+            }
+
+            // 更新状态文字
+            document.getElementById('modal1-status').textContent = statusText;
+            document.getElementById('modal2-status').textContent = statusText;
+            document.getElementById('current-status').textContent = statusText;
+            
+            // 更新录音按钮图标
+            document.getElementById('modal1-record-icon').innerHTML = iconContent;
+            document.getElementById('modal2-record-icon').innerHTML = iconContent;
+
+            // 更新状态样式
+            const statusClass = isRecording && !isPaused ? 'status-recording' : 
+                               isPaused ? 'status-paused' : 'status-stopped';
+            
+            document.getElementById('modal1-status').className = `modal1-status ${statusClass}`;
+            document.getElementById('modal2-status').className = `modal2-status ${statusClass}`;
+            document.getElementById('current-status').style.color = 
+                isRecording && !isPaused ? '#e74c3c' : 
+                isPaused ? '#f39c12' : '#27ae60';
+        }
+
+        // 切换录音状态
+        function toggleRecording() {
+            if (!isRecording && !isPaused) {
+                // 开始录音
+                isRecording = true;
+                isPaused = false;
+                console.log('开始录音');
+            } else if (isRecording && !isPaused) {
+                // 暂停录音
+                isPaused = true;
+                console.log('暂停录音');
+            } else if (isPaused) {
+                // 恢复录音
+                isPaused = false;
+                console.log('恢复录音');
+            }
+            updateUI();
+        }
+
+        // 停止录音 - 回到未开始状态
+        function stopRecording() {
+            if (isRecording || isPaused) {
+                isRecording = false;
+                isPaused = false;
+                console.log('停止录音 -> 回到未开始状态');
+                updateUI();
+            }
+        }
+
+        // 展开到模态二
+        function expandToModal2() {
+            document.getElementById('modal1').style.display = 'none';
+            document.getElementById('modal2').style.display = 'block';
+            currentModal = 2;
+            console.log('切换到模态二');
+        }
+
+        // 最小化到模态一
+        function minimizeToModal1() {
+            document.getElementById('modal1').style.display = 'block';
+            document.getElementById('modal2').style.display = 'none';
+            currentModal = 1;
+            console.log('切换到模态一');
+        }
+
+        // 关闭窗口
+        function closeWindow() {
+            if (confirm('确认关闭录音窗口？')) {
+                // 如果正在录音，先停止
+                if (isRecording || isPaused) {
+                    stopRecording();
+                }
+                alert('窗口已关闭（模拟）');
+                resetState();
+            }
+        }
+
+        // 切换模态
+        function switchModal() {
+            if (currentModal === 1) {
+                expandToModal2();
+            } else {
+                minimizeToModal1();
+            }
+        }
+
+        // 重置状态到未开始
+        function resetState() {
+            isRecording = false;
+            isPaused = false;
+            updateUI();
+            console.log('状态已重置到未开始');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUI();
+            // 默认显示模态一，隐藏模态二
+            document.getElementById('modal2').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

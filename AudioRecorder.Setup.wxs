@@ -45,6 +45,10 @@
         <File Id="MainExecutable" Name="AudioRecorder.exe" 
               Source="bin\Release\net8.0-windows\win-x64\publish\AudioRecorder.exe" />
         
+        <!-- 配置文件 -->
+        <File Id="AppSettings" Name="appsettings.json" 
+              Source="appsettings.json" />
+        
         <!-- 注册表信息 - 用于检测已安装版本 -->
         <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\AudioRecorder">
           <RegistryValue Name="DisplayName" Value="AudioRecorder" Type="string" />

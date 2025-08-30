@@ -22,6 +22,7 @@ namespace AudioRecorder
         private System.Threading.Timer? systemAudioTimer;
         private System.Threading.Timer? microphoneTimer;
         private bool isRecording;
+        private bool isPaused;
         private MMDevice? defaultRenderDevice; // 用于监控系统音量
 
         // 实时音频监控和自动增益控制
@@ -45,9 +46,23 @@ namespace AudioRecorder
         private readonly int targetChannels = 1; // 修改为单声道
         private readonly int targetBitsPerSample = 16; // 保持16位深度
 
+        // 文件路径存储（用于上传）
+        private string? currentSystemAudioPath;
+        private string? currentMicrophonePath;
+
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<Exception>? ErrorOccurred;
         public bool IsRecording => isRecording;
+
+        /// <summary>
+        /// 获取当前录制的系统音频文件路径
+        /// </summary>
+        public string? GetCurrentSystemAudioPath() => currentSystemAudioPath;
+
+        /// <summary>
+        /// 获取当前录制的麦克风音频文件路径
+        /// </summary>
+        public string? GetCurrentMicrophonePath() => currentMicrophonePath;
 
         public SimpleAudioRecorder()
         {
@@ -71,6 +86,10 @@ namespace AudioRecorder
                 // 创建两个独立的输出文件
                 string systemAudioPath = Path.Combine(baseDir, $"SystemAudio_{timestamp}.wav");
                 string microphonePath = Path.Combine(baseDir, $"Microphone_{timestamp}.wav");
+                
+                // 保存文件路径（用于上传）
+                currentSystemAudioPath = systemAudioPath;
+                currentMicrophonePath = microphonePath;
                 
                 var outputFormat = new WaveFormat(targetSampleRate, targetBitsPerSample, targetChannels);
                 systemAudioWriter = new WaveFileWriter(systemAudioPath, outputFormat);
@@ -176,6 +195,8 @@ namespace AudioRecorder
                 System.Diagnostics.Debug.WriteLine($"麦克风音频电平计算错误: {ex.Message}");
             }
         }
+
+
         
         // 简化的RMS计算方法
         private float CalculateSimpleRms(byte[] buffer, int offset, int count)
@@ -411,6 +432,10 @@ namespace AudioRecorder
                 systemVolumeMultiplier = 1.0f;
                 micVolumeMultiplier = 1.0f;
 
+                // 清理文件路径
+                currentSystemAudioPath = null;
+                currentMicrophonePath = null;
+
                 StatusChanged?.Invoke(this, "⏹ 录制已停止，文件已保存。");
             }
             catch (Exception ex)
@@ -418,6 +443,58 @@ namespace AudioRecorder
                 ErrorOccurred?.Invoke(this, new Exception("停止录制时出错", ex));
             }
         }
+
+        public void PauseRecording()
+        {
+            if (!isRecording || isPaused) return;
+            
+            isPaused = true;
+            
+            try
+            {
+                // 暂停音频捕获
+                systemAudioCapture?.StopRecording();
+                microphoneCapture?.StopRecording();
+                
+                // 暂停处理时钟
+                systemAudioTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                microphoneTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                volumeBalanceTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+
+                StatusChanged?.Invoke(this, "⏸ 录制已暂停");
+            }
+            catch (Exception ex)
+            {
+                ErrorOccurred?.Invoke(this, new Exception("暂停录制时出错", ex));
+            }
+        }
+
+        public void ResumeRecording()
+        {
+            if (!isRecording || !isPaused) return;
+            
+            isPaused = false;
+            
+            try
+            {
+                // 恢复音频捕获
+                systemAudioCapture?.StartRecording();
+                microphoneCapture?.StartRecording();
+                
+                // 恢复处理时钟
+                systemAudioTimer?.Change(0, 10);  // 每10ms处理一次
+                microphoneTimer?.Change(0, 10);   // 每10ms处理一次
+                volumeBalanceTimer?.Change(0, 500); // 每500ms调整一次音量平衡
+
+                StatusChanged?.Invoke(this, "▶ 录制已恢复");
+            }
+            catch (Exception ex)
+            {
+                ErrorOccurred?.Invoke(this, new Exception("恢复录制时出错", ex));
+            }
+        }
+
+        public bool IsPaused => isPaused;
 
         public void Dispose()
         {

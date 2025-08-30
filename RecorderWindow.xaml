@@ -1,0 +1,197 @@
+<Window x:Class="AudioRecorder.RecorderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="会议录制" 
+        Width="200" Height="50"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent"
+        Topmost="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        MouseDown="Window_MouseDown">
+    
+    <Window.Resources>
+        <!-- 按钮样式 -->
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- 主容器 -->
+    <Border x:Name="MainBorder" CornerRadius="10" Background="White" BorderThickness="1" BorderBrush="#E0E0E0">
+        <!-- 使用单一Grid容器包含两个模态 -->
+        <Grid>
+            <!-- 模态一：小窗口布局 (200x50px) - 严格按照HTML设计 -->
+            <Grid x:Name="Modal1Grid" Visibility="Visible">
+                <!-- 使用StackPanel水平布局，完全模拟HTML的flex布局 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                    <!-- 状态标签 - 最左边，60px宽度 -->
+                    <TextBlock x:Name="StatusLabel1" 
+                               Text="未开始" 
+                               FontFamily="Microsoft YaHei" 
+                               FontSize="14"
+                               Foreground="#666666"
+                               Width="75"
+                               TextAlignment="Left"
+                               VerticalAlignment="Center"
+                               FontWeight="Medium"
+                               Padding="15,0,3,0"/>
+                    
+                    <!-- 录音/暂停按钮 - 35x35，margin 2px -->
+                    <Button x:Name="RecordButton1" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="35" Height="35" 
+                            Margin="0"
+                            Click="RecordButton_Click">
+                        <Image x:Name="RecordIcon1" Width="25" Height="25" />
+                    </Button>
+                    
+                    <!-- 停止按钮 - 35x35，margin 2px -->
+                    <Button x:Name="StopButton1" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="35" Height="35"
+                            Margin="0"
+                            Click="StopButton_Click">
+                        <Image x:Name="StopIcon1" Width="25" Height="25" />
+                    </Button>
+                    
+                    <!-- 分隔线 - 1px宽，35px高，margin 0 3px -->
+                    <Rectangle Fill="#BDC3C7" Width="1" Height="35" Margin="5,0"/>
+                    
+                    <!-- 展开按钮 - 35x35，margin 2px -->
+                    <Button x:Name="ExpandButton" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="35" Height="35"
+                            Margin="2"
+                            Click="ExpandButton_Click">
+                        <Image x:Name="ExpandIcon" Width="25" Height="25" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 模态二：大窗口布局 (200x200px) - 严格按照HTML设计 -->
+            <Grid x:Name="Modal2Grid" Visibility="Collapsed">
+                <!-- 标题栏 - height: 30px -->
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Right" 
+                            VerticalAlignment="Top"
+                            Height="30"
+                            Margin="0,2,5,0">
+                    <!-- 最小化按钮 - 28x28，margin 0，gap 0 -->
+                    <Button x:Name="MinimizeButton" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="35" Height="35"
+                            Margin="2"
+                            Click="MinimizeButton_Click">
+                        <Image x:Name="MinimizeIcon" Width="25" Height="25" />
+                    </Button>
+                    
+                    <!-- 关闭按钮 - 28x28，margin 0 -->
+                    <Button x:Name="CloseButton" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="35" Height="35"
+                            Margin="2"
+                            Click="CloseButton_Click">
+                        <Image x:Name="CloseIcon" Width="25" Height="25" />
+                    </Button>
+                </StackPanel>
+                
+                <!-- 状态标签 - font-size: 12px, margin: 20px 0 -->
+                <TextBlock x:Name="StatusLabel2" 
+                           Text="未开始" 
+                           FontFamily="Microsoft YaHei" 
+                           FontSize="14"
+                           Foreground="#666666"
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center"
+                           Margin="0,20,0,60"/>
+                
+                <!-- 录音控制按钮 - 底部，gap: 10px -->
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Bottom"
+                            Margin="0,20,0,20">
+                    <!-- 录音/暂停按钮 - 60x60 -->
+                    <Button x:Name="RecordButton2" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="60" Height="60" 
+                            Margin="0,0,30,0"
+                            Click="RecordButton_Click">
+                        <Image x:Name="RecordIcon2" Width="35" Height="35" />
+                    </Button>
+                    
+                    <!-- 停止按钮 - 60x60 -->
+                    <Button x:Name="StopButton2" 
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="60" Height="60"
+                            Click="StopButton_Click">
+                        <Image x:Name="StopIcon2" Width="40" Height="40" />
+                    </Button>
+                </StackPanel>
+
+                <!-- 停止录音确认覆盖层 -->
+                <Grid x:Name="StopConfirmOverlay" 
+                      Background="#80000000" 
+                      Visibility="Collapsed">
+                    <Border Background="White" 
+                            CornerRadius="8" 
+                            Padding="20"
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Center"
+                            MaxWidth="160">
+                        <StackPanel>
+                            <!-- 确认提示文字 -->
+                            <TextBlock Text="确定停止录音？" 
+                                       FontFamily="Microsoft YaHei" 
+                                       FontSize="14"
+                                       Foreground="#333333"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,20"/>
+                            
+                            <!-- 确认按钮 -->
+                            <StackPanel Orientation="Horizontal" 
+                                        HorizontalAlignment="Center" 
+                                        Margin="0,0,0,10">
+                                <Button x:Name="ConfirmStopButton" 
+                                        Content="确认" 
+                                        Width="60" Height="30"
+                                        Margin="0,0,10,0"
+                                        Background="#E74C3C"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontFamily="Microsoft YaHei"
+                                        FontSize="12"
+                                        Click="ConfirmStopButton_Click"/>
+                                
+                                <Button x:Name="CancelStopButton" 
+                                        Content="取消" 
+                                        Width="60" Height="30"
+                                        Background="#95A5A6"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        FontFamily="Microsoft YaHei"
+                                        FontSize="12"
+                                        Click="CancelStopButton_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

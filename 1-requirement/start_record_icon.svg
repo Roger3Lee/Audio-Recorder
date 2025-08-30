@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 开始录音图标 - 播放按钮样式的三角形 -->
+  <path d="M8 6V18L18 12L8 6Z" fill="#E74C3C" stroke="#C0392B" stroke-width="1" stroke-linejoin="round"/>
+</svg>

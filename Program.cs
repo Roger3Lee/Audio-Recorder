@@ -1,5 +1,5 @@
 using System;
-using System.Windows.Forms;
+using System.Windows;
 
 namespace AudioRecorder
 {
@@ -24,23 +24,22 @@ namespace AudioRecorder
                     // 如果应用没有运行，则启动应用
                     if (!IsApplicationRunning())
                     {
-                        ApplicationConfiguration.Initialize();
-                        Application.Run(new DesktopRecorderWindow());
+                        var wpfApp1 = new System.Windows.Application();
+                        wpfApp1.Run(new RecorderWindow());
                     }
                     return;
                 }
             }
 
-            // 正常启动应用
-            ApplicationConfiguration.Initialize();
-            
+            // 正常启动WPF应用
             // 注册URL协议（如果还没有注册）
             if (!UrlProtocolHandler.IsProtocolRegistered())
             {
                 UrlProtocolHandler.RegisterProtocol();
             }
             
-            Application.Run(new DesktopRecorderWindow());
+            var wpfApp = new System.Windows.Application();
+            wpfApp.Run(new RecorderWindow());
         }
 
         /// <summary>
@@ -49,7 +48,7 @@ namespace AudioRecorder
         /// <returns>是否已经在运行</returns>
         private static bool IsApplicationRunning()
         {
-            string processName = System.IO.Path.GetFileNameWithoutExtension(Application.ExecutablePath);
+            string processName = "AudioRecorder";
             System.Diagnostics.Process[] processes = System.Diagnostics.Process.GetProcessesByName(processName);
             return processes.Length > 1; // 当前进程也算一个
         }
