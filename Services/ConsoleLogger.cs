@@ -19,12 +19,12 @@ namespace AudioRecorder.Services
             return null;
         }
 
-        public bool IsEnabled(LogLevel logLevel)
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel)
         {
             return true; // 总是启用日志
         }
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             if (!IsEnabled(logLevel))
                 return;
@@ -47,30 +47,30 @@ namespace AudioRecorder.Services
             Console.ForegroundColor = originalColor;
         }
 
-        private string GetLogLevelString(LogLevel logLevel)
+        private string GetLogLevelString(Microsoft.Extensions.Logging.LogLevel logLevel)
         {
             return logLevel switch
             {
-                LogLevel.Trace => "TRACE",
-                LogLevel.Debug => "DEBUG",
-                LogLevel.Information => "INFO ",
-                LogLevel.Warning => "WARN ",
-                LogLevel.Error => "ERROR",
-                LogLevel.Critical => "CRIT ",
+                Microsoft.Extensions.Logging.LogLevel.Trace => "TRACE",
+                Microsoft.Extensions.Logging.LogLevel.Debug => "DEBUG",
+                Microsoft.Extensions.Logging.LogLevel.Information => "INFO ",
+                Microsoft.Extensions.Logging.LogLevel.Warning => "WARN ",
+                Microsoft.Extensions.Logging.LogLevel.Error => "ERROR",
+                Microsoft.Extensions.Logging.LogLevel.Critical => "CRIT ",
                 _ => "UNKN "
             };
         }
 
-        private ConsoleColor GetLogLevelColor(LogLevel logLevel)
+        private ConsoleColor GetLogLevelColor(Microsoft.Extensions.Logging.LogLevel logLevel)
         {
             return logLevel switch
             {
-                LogLevel.Trace => ConsoleColor.Gray,
-                LogLevel.Debug => ConsoleColor.DarkGray,
-                LogLevel.Information => ConsoleColor.White,
-                LogLevel.Warning => ConsoleColor.Yellow,
-                LogLevel.Error => ConsoleColor.Red,
-                LogLevel.Critical => ConsoleColor.DarkRed,
+                Microsoft.Extensions.Logging.LogLevel.Trace => ConsoleColor.Gray,
+                Microsoft.Extensions.Logging.LogLevel.Debug => ConsoleColor.DarkGray,
+                Microsoft.Extensions.Logging.LogLevel.Information => ConsoleColor.White,
+                Microsoft.Extensions.Logging.LogLevel.Warning => ConsoleColor.Yellow,
+                Microsoft.Extensions.Logging.LogLevel.Error => ConsoleColor.Red,
+                Microsoft.Extensions.Logging.LogLevel.Critical => ConsoleColor.DarkRed,
                 _ => ConsoleColor.White
             };
         }

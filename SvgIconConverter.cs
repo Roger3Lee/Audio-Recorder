@@ -50,10 +50,54 @@ namespace AudioRecorder
                         break;
 
                     case "stop":
-                        // 停止方形 - 黑色 (#000000)
-                        var stopBrush = new SolidColorBrush(Colors.Black);
-                        var rectSize = 12 * scale;
-                        context.DrawRectangle(stopBrush, null, new Rect(center.X - rectSize/2, center.Y - rectSize/2, rectSize, rectSize));
+                        // 停止按钮 - 现代红色设计，与stop_icon.svg一致
+                        var stopOuterBrush = new SolidColorBrush(WpfColor.FromRgb(254, 226, 226)); // #FEE2E2
+                        var stopBorderBrush = new SolidColorBrush(WpfColor.FromRgb(239, 68, 68)); // #EF4444
+                        var stopInnerBrush = new SolidColorBrush(WpfColor.FromRgb(220, 38, 38)); // #DC2626
+                        var stopHighlightBrush = new SolidColorBrush(WpfColor.FromRgb(252, 165, 165)); // #FCA5A5
+                        
+                        var stopRadius = 11 * scale;
+                        var stopCenter = center;
+                        
+                        // 外圆背景
+                        context.DrawEllipse(stopOuterBrush, 
+                            new Pen(stopBorderBrush, 1.5 * scale), 
+                            stopCenter, stopRadius, stopRadius);
+                        
+                        // 停止按钮 - 圆角方形
+                        var stopButtonSize = 8 * scale;
+                        var stopButtonRect = new Rect(
+                            stopCenter.X - stopButtonSize/2, 
+                            stopCenter.Y - stopButtonSize/2, 
+                            stopButtonSize, stopButtonSize);
+                        
+                        // 绘制圆角矩形（使用多个矩形模拟圆角效果）
+                        var cornerRadius = 1.5 * scale;
+                        var innerSize = 7 * scale;
+                        var innerRect = new Rect(
+                            stopCenter.X - innerSize/2, 
+                            stopCenter.Y - innerSize/2, 
+                            innerSize, innerSize);
+                        
+                        // 主停止按钮
+                        context.DrawRectangle(stopInnerBrush, null, stopButtonRect);
+                        
+                        // 内部高光效果
+                        context.DrawRectangle(stopBorderBrush, null, innerRect);
+                        
+                        // 顶部高光
+                        var topHighlightRect = new Rect(
+                            stopCenter.X - 3 * scale, 
+                            stopCenter.Y - innerSize/2, 
+                            6 * scale, 1 * scale);
+                        context.DrawRectangle(stopHighlightBrush, null, topHighlightRect);
+                        
+                        // 左侧高光
+                        var leftHighlightRect = new Rect(
+                            stopCenter.X - innerSize/2, 
+                            stopCenter.Y - 3 * scale, 
+                            1 * scale, 6 * scale);
+                        context.DrawRectangle(stopHighlightBrush, null, leftHighlightRect);
                         break;
 
                     case "expand":
