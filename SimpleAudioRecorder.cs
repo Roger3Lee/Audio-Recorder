@@ -6,6 +6,7 @@ using NAudio.CoreAudioApi;
 using NAudio.Wave.SampleProviders;
 using AudioRecorder.Models;
 using AudioRecorder.Services;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder
 {
@@ -63,6 +64,9 @@ namespace AudioRecorder
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<Exception>? ErrorOccurred;
         public bool IsRecording => isRecording;
+        
+        // 日志记录器
+        private readonly ILogger _logger;
 
         /// <summary>
         /// 获取当前录制的系统音频文件路径
@@ -76,7 +80,11 @@ namespace AudioRecorder
 
         public SimpleAudioRecorder()
         {
-            Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "AudioRecordings"));
+            _logger = LoggingServiceManager.CreateLogger("SimpleAudioRecorder");
+            
+            // 创建程序目录下的Audio文件夹
+            string audioDir = Path.Combine(AppContext.BaseDirectory, "Audio");
+            Directory.CreateDirectory(audioDir);
             
             // 从配置文件读取音频设置
             LoadAudioSettings();
@@ -100,16 +108,16 @@ namespace AudioRecorder
                 var realTimeConfig = config.RealTimeSaveSettings;
                 if (realTimeConfig.IsValid())
                 {
-                    Console.WriteLine($"📋 音频配置已加载: {realTimeConfig.GetSummary()}");
+                    _logger.LogInformation("音频配置已加载: {ConfigSummary}", realTimeConfig.GetSummary());
                 }
                 else
                 {
-                    Console.WriteLine("⚠️ 实时保存配置无效，使用默认值");
+                    _logger.LogWarning("实时保存配置无效，使用默认值");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 加载音频配置失败: {ex.Message}，使用默认值");
+                _logger.LogWarning(ex, "加载音频配置失败，使用默认值");
             }
         }
 
@@ -125,7 +133,7 @@ namespace AudioRecorder
             {
                 isRecording = true;
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string baseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "AudioRecordings");
+                string baseDir = Path.Combine(AppContext.BaseDirectory, "Audio");
                 
                 // 创建两个独立的输出文件
                 string systemAudioPath = Path.Combine(baseDir, $"SystemAudio_{timestamp}.wav");
@@ -215,7 +223,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"系统音频电平计算错误: {ex.Message}");
+                _logger.LogError(ex, "系统音频电平计算错误");
             }
         }
         
@@ -236,7 +244,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"麦克风音频电平计算错误: {ex.Message}");
+                _logger.LogError(ex, "麦克风音频电平计算错误");
             }
         }
 
@@ -271,7 +279,7 @@ namespace AudioRecorder
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"音量平衡调整错误: {ex.Message}");
+                    _logger.LogError(ex, "音量平衡调整错误");
                 }
             }, null, 2000, 1000); // 2秒后开始，每1秒调整一次
         }
@@ -314,7 +322,8 @@ namespace AudioRecorder
             }
             
             // 调试输出
-            System.Diagnostics.Debug.WriteLine($"音量调整 - 系统: {systemLevel:F4} -> 倍数{systemVolumeMultiplier:F2}, 麦克风: {micLevel:F4} -> 倍数{micVolumeMultiplier:F2}");
+            _logger.LogDebug("音量调整 - 系统: {SystemLevel:F4} -> 倍数{SystemMultiplier:F2}, 麦克风: {MicLevel:F4} -> 倍数{MicMultiplier:F2}", 
+                systemLevel, systemVolumeMultiplier, micLevel, micVolumeMultiplier);
         }
 
         private void StartSeparateProcessing()
@@ -330,9 +339,12 @@ namespace AudioRecorder
             var systemBuffer = new float[systemProvider.WaveFormat.SampleRate * systemProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
             var micBuffer = new float[micProvider.WaveFormat.SampleRate * micProvider.WaveFormat.Channels * intervalMilliseconds / 1000];
             
-            System.Diagnostics.Debug.WriteLine($"音频缓冲区 - 系统: {systemBuffer.Length}样本, 麦克风: {micBuffer.Length}样本");
-            System.Diagnostics.Debug.WriteLine($"音频格式 - 采样率: {targetSampleRate}Hz, 声道: {targetChannels}, 位深: {targetBitsPerSample}bit");
-            System.Diagnostics.Debug.WriteLine($"实时处理间隔: {intervalMilliseconds}ms, 文件刷新间隔: {realTimeConfig.FlushIntervalMs}ms");
+            _logger.LogInformation("音频缓冲区 - 系统: {SystemBufferSize}样本, 麦克风: {MicBufferSize}样本", 
+                systemBuffer.Length, micBuffer.Length);
+            _logger.LogInformation("音频格式 - 采样率: {SampleRate}Hz, 声道: {Channels}, 位深: {BitsPerSample}bit", 
+                targetSampleRate, targetChannels, targetBitsPerSample);
+            _logger.LogInformation("实时处理间隔: {ProcessingInterval}ms, 文件刷新间隔: {FlushInterval}ms", 
+                intervalMilliseconds, realTimeConfig.FlushIntervalMs);
             
             // 如果启用实时保存，启动文件刷新定时器
             if (realTimeConfig.EnableRealTimeSave)
@@ -416,7 +428,7 @@ namespace AudioRecorder
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"文件刷新错误: {ex.Message}");
+                    _logger.LogError(ex, "文件刷新错误");
                 }
             }, null, config.FlushIntervalMs, config.FlushIntervalMs);
             
@@ -459,7 +471,7 @@ namespace AudioRecorder
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"刷新音频文件失败: {ex.Message}");
+                    _logger.LogError(ex, "刷新音频文件失败");
                 }
             }
         }

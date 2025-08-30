@@ -4,6 +4,7 @@ using System.Text.Json;
 using AudioRecorder.Models;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -14,7 +15,7 @@ namespace AudioRecorder.Services
     {
         private static ConfigurationService? _instance;
         private static readonly object _lock = new object();
-        private readonly LoggingService _logger;
+        private readonly ILogger _logger;
         
         public UploadSettings UploadSettings { get; private set; }
         public OAuthSettings OAuthSettings { get; private set; }
@@ -23,7 +24,7 @@ namespace AudioRecorder.Services
 
         private ConfigurationService()
         {
-            _logger = LoggingService.Instance;
+            _logger = LoggingServiceManager.CreateLogger("ConfigurationService");
             LoadConfiguration();
         }
 
@@ -49,7 +50,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _logger.LogInformation("开始加载配置文件", "ConfigurationService");
+                _logger.LogInformation("开始加载配置文件");
                 
                 var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
                 if (File.Exists(configPath))
@@ -66,8 +67,8 @@ namespace AudioRecorder.Services
                         AudioSettings = config.AudioSettings ?? new AudioSettings();
                         RealTimeSaveSettings = config.RealTimeSaveSettings ?? new RealTimeSaveSettings();
                         
-                        _logger.LogInformation($"配置文件加载成功: {configPath}", "ConfigurationService");
-                        _logger.LogInformation($"OAuth认证状态: {(OAuthSettings.EnableAuthentication ? "已启用" : "已禁用")}", "ConfigurationService");
+                        _logger.LogInformation("配置文件加载成功: {ConfigPath}", configPath);
+                        _logger.LogInformation("OAuth认证状态: {AuthStatus}", OAuthSettings.EnableAuthentication ? "已启用" : "已禁用");
                         
                         // 记录OAuth提供商配置状态
                         var githubConfigured = !string.IsNullOrEmpty(OAuthSettings.GitHub.ClientId) && 
@@ -75,8 +76,8 @@ namespace AudioRecorder.Services
                         var googleConfigured = !string.IsNullOrEmpty(OAuthSettings.Google.ClientId) && 
                                              OAuthSettings.Google.ClientId != "your-google-client-id";
                         
-                        _logger.LogInformation($"GitHub OAuth配置: {(githubConfigured ? "已配置" : "未配置")}", "ConfigurationService");
-                        _logger.LogInformation($"Google OAuth配置: {(googleConfigured ? "已配置" : "未配置")}", "ConfigurationService");
+                        _logger.LogInformation("GitHub OAuth配置: {GitHubStatus}", githubConfigured ? "已配置" : "未配置");
+                        _logger.LogInformation("Google OAuth配置: {GoogleStatus}", googleConfigured ? "已配置" : "未配置");
                     }
                     else
                     {
@@ -84,7 +85,7 @@ namespace AudioRecorder.Services
                         OAuthSettings = new OAuthSettings();
                         AudioSettings = new AudioSettings();
                         RealTimeSaveSettings = new RealTimeSaveSettings();
-                        _logger.LogWarning("配置文件解析失败，使用默认配置", "ConfigurationService");
+                        _logger.LogWarning("配置文件解析失败，使用默认配置");
                     }
                 }
                 else
@@ -93,7 +94,7 @@ namespace AudioRecorder.Services
                     OAuthSettings = new OAuthSettings();
                     AudioSettings = new AudioSettings();
                     RealTimeSaveSettings = new RealTimeSaveSettings();
-                    _logger.LogWarning($"配置文件不存在: {configPath}，使用默认配置", "ConfigurationService");
+                    _logger.LogWarning("配置文件不存在: {ConfigPath}，使用默认配置", configPath);
                 }
             }
             catch (Exception ex)
@@ -275,7 +276,7 @@ namespace AudioRecorder.Services
                 // 如果OAuth认证被禁用，返回空配置
                 if (!IsOAuthEnabled())
                 {
-                    _logger.LogDebug("OAuth认证已禁用，返回空的Google配置", "ConfigurationService");
+                    _logger.LogDebug("OAuth认证已禁用，返回空的Google配置");
                     return new OAuthConfig
                     {
                         ProviderName = "Google",
@@ -300,12 +301,13 @@ namespace AudioRecorder.Services
                     Prompt = "consent"
                 };
 
-                _logger.LogDebug($"获取Google OAuth配置: ClientId={(!string.IsNullOrEmpty(config.ClientId) ? "已设置" : "未设置")}, RedirectUri={config.RedirectUri}", "ConfigurationService");
+                _logger.LogDebug("获取Google OAuth配置: ClientId={ClientIdStatus}, RedirectUri={RedirectUri}", 
+                    !string.IsNullOrEmpty(config.ClientId) ? "已设置" : "未设置", config.RedirectUri);
                 return config;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取Google OAuth配置失败: {ex.Message}", "ConfigurationService", ex);
+                _logger.LogError(ex, "获取Google OAuth配置失败");
                 throw;
             }
         }
@@ -323,12 +325,12 @@ namespace AudioRecorder.Services
                     "无";
                 
                 var summary = $"OAuth认证: {status}, 可用提供商: {providers}";
-                _logger.LogDebug($"获取认证状态摘要: {summary}", "ConfigurationService");
+                _logger.LogDebug("获取认证状态摘要: {Summary}", summary);
                 return summary;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取认证状态摘要失败: {ex.Message}", "ConfigurationService", ex);
+                _logger.LogError(ex, "获取认证状态摘要失败");
                 return "获取认证状态失败";
             }
         }
@@ -348,17 +350,17 @@ namespace AudioRecorder.Services
                     
                     if (config?.WindowPosition != null)
                     {
-                        _logger.LogDebug($"获取窗口位置: ({config.WindowPosition.X}, {config.WindowPosition.Y})", "ConfigurationService");
+                        _logger.LogDebug("获取窗口位置: ({X}, {Y})", config.WindowPosition.X, config.WindowPosition.Y);
                         return config.WindowPosition;
                     }
                 }
                 
-                _logger.LogDebug("未找到保存的窗口位置", "ConfigurationService");
+                _logger.LogDebug("未找到保存的窗口位置");
                 return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取窗口位置失败: {ex.Message}", "ConfigurationService", ex);
+                _logger.LogError(ex, "获取窗口位置失败");
                 return null;
             }
         }

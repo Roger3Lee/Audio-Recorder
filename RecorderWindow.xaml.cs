@@ -9,6 +9,7 @@ using AudioRecorder.Models;
 using WpfMessageBox = System.Windows.MessageBox;
 using WpfPoint = System.Windows.Point;
 using System.Threading.Tasks; // Added for Task.Run
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder
 {
@@ -28,6 +29,9 @@ namespace AudioRecorder
         private bool isLargeWindow = false; // true=模态二(大窗口), false=模态一(小窗口)
         private bool isStopConfirming = false; // 控制停止确认覆盖层的显示状态
         
+        // 日志记录器
+        private readonly ILogger _logger;
+        
         // 模态尺寸
         private readonly System.Windows.Size Modal1Size = new System.Windows.Size(200, 50);
         private readonly System.Windows.Size Modal2Size = new System.Windows.Size(200, 200);
@@ -35,6 +39,8 @@ namespace AudioRecorder
 
         public RecorderWindow()
         {
+            _logger = LoggingServiceManager.CreateLogger("RecorderWindow");
+            
             InitializeComponent();
             
             // 设置窗口属性
@@ -93,7 +99,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 初始化上传服务失败: {ex.Message}");
+                _logger.LogWarning(ex, "初始化上传服务失败");
             }
         }
 
@@ -105,7 +111,7 @@ namespace AudioRecorder
                 var config = ConfigurationService.Instance;
                 if (!config.IsOAuthEnabled())
                 {
-                    Console.WriteLine("⚠️ OAuth认证已禁用，跳过OAuth初始化");
+                    _logger.LogInformation("OAuth认证已禁用，跳过OAuth初始化");
                     return;
                 }
 
@@ -117,11 +123,11 @@ namespace AudioRecorder
                 oauthService.LoginFailed += OnOAuthLoginFailed;
                 oauthService.LoginStateRestored += OnOAuthLoginStateRestored;
                 
-                Console.WriteLine("✅ OAuth授权系统初始化成功");
+                _logger.LogInformation("OAuth授权系统初始化成功");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ OAuth授权系统初始化失败: {ex.Message}");
+                _logger.LogError(ex, "OAuth授权系统初始化失败");
             }
         }
 

@@ -28,7 +28,12 @@
     
     <!-- 安装目录结构 -->
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="AudioRecorder" />
+      <Directory Id="INSTALLFOLDER" Name="AudioRecorder">
+        <!-- 创建Audio子文件夹用于存储录音文件 -->
+        <Directory Id="AudioFolder" Name="Audio" />
+        <!-- 创建log子文件夹用于存储日志文件 -->
+        <Directory Id="LogFolder" Name="log" />
+      </Directory>
     </StandardDirectory>
     
     <!-- 开始菜单目录 -->
@@ -43,7 +48,7 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="MainExecutable" Guid="*">
         <File Id="MainExecutable" Name="AudioRecorder.exe" 
-              Source="bin\Release\net8.0-windows\win-x64\publish\AudioRecorder.exe" />
+              Source="binReleasenet8.0-windowswin-x64publish\AudioRecorder.exe" />
         
         <!-- 配置文件 -->
         <File Id="AppSettings" Name="appsettings.json" 
@@ -66,6 +71,20 @@
           <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
           <RegistryValue Name="Version" Value="1.0.0" Type="string" />
         </RegistryKey>
+      </Component>
+      
+      <!-- Audio文件夹组件 -->
+      <Component Id="AudioFolderComponent" Directory="AudioFolder" Guid="*">
+        <CreateFolder />
+        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
+                       Name="AudioFolder" Value="[AudioFolder]" Type="string" KeyPath="yes" />
+      </Component>
+      
+      <!-- Log文件夹组件 -->
+      <Component Id="LogFolderComponent" Directory="LogFolder" Guid="*">
+        <CreateFolder />
+        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
+                       Name="LogFolder" Value="[LogFolder]" Type="string" KeyPath="yes" />
       </Component>
     </ComponentGroup>
     
