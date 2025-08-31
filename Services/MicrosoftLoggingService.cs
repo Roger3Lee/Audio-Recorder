@@ -51,17 +51,27 @@ namespace AudioRecorder.Services
         {
             try
             {
-                // 获取应用程序安装目录
-                var appDirectory = AppContext.BaseDirectory;
-                var logDirectory = Path.Combine(appDirectory, "log");
+                // 优先使用用户AppData目录，避免安装目录权限问题
+                var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var logDirectory = Path.Combine(appDataPath, "AudioRecorder", "logs");
                 return Path.Combine(logDirectory, "app.log");
             }
             catch
             {
-                // 如果获取安装目录失败，使用当前目录
-                var currentDirectory = Directory.GetCurrentDirectory();
-                var logDirectory = Path.Combine(currentDirectory, "log");
-                return Path.Combine(logDirectory, "app.log");
+                try
+                {
+                    // 备用方案：使用用户文档目录
+                    var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    var logDirectory = Path.Combine(documentsPath, "AudioRecorder", "logs");
+                    return Path.Combine(logDirectory, "app.log");
+                }
+                catch
+                {
+                    // 最后备用方案：使用当前目录
+                    var currentDirectory = Directory.GetCurrentDirectory();
+                    var logDirectory = Path.Combine(currentDirectory, "logs");
+                    return Path.Combine(logDirectory, "app.log");
+                }
             }
         }
 

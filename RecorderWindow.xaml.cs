@@ -43,11 +43,18 @@ namespace AudioRecorder
             
             InitializeComponent();
             
+            // 订阅URL协议事件
+            UrlProtocolHandler.ProtocolActionReceived += OnProtocolActionReceived;
+            
             // 设置窗口属性
             this.Topmost = true;
             this.WindowStyle = WindowStyle.None;
             this.AllowsTransparency = true;
             this.Background = System.Windows.Media.Brushes.Transparent;
+            
+            // 确保窗口可见
+            this.ShowInTaskbar = true;
+            this.Visibility = System.Windows.Visibility.Visible;
             
             // 设置窗口位置（默认在桌面右中部分，或恢复上次位置）
             SetWindowPosition();
@@ -876,6 +883,9 @@ namespace AudioRecorder
 
         protected override void OnClosed(EventArgs e)
         {
+            // 取消订阅URL协议事件
+            UrlProtocolHandler.ProtocolActionReceived -= OnProtocolActionReceived;
+            
             // 保存窗口位置（如果窗口在屏幕范围内）
             if (IsWindowInScreenBounds())
             {
@@ -887,6 +897,66 @@ namespace AudioRecorder
             uploadService?.Dispose();
             recorder?.Dispose();
             base.OnClosed(e);
+        }
+
+        /// <summary>
+        /// 处理URL协议事件
+        /// </summary>
+        private void OnProtocolActionReceived(object? sender, ProtocolActionEventArgs e)
+        {
+            try
+            {
+                _logger.LogInformation($"收到URL协议命令: {e.Action}");
+                
+                // 确保在UI线程中执行
+                this.Dispatcher.BeginInvoke(() =>
+                {
+                    try
+                    {
+                        // 首先确保窗口可见和激活
+                        this.Show();
+                        this.Activate();
+                        this.WindowState = System.Windows.WindowState.Normal;
+                        this.Topmost = true;
+                        
+                        switch (e.Action.ToLower())
+                        {
+                            case "start":
+                                if (recorder != null)
+                                    recorder.StartRecording();
+                                break;
+                            case "stop":
+                                if (recorder != null)
+                                    recorder.StopRecording();
+                                break;
+                            case "pause":
+                                if (recorder != null)
+                                    recorder.PauseRecording();
+                                break;
+                            case "resume":
+                                if (recorder != null)
+                                    recorder.ResumeRecording();
+                                break;
+                            case "show":
+                                // 窗口已经显示和激活
+                                break;
+                            default:
+                                _logger.LogWarning($"未知的URL协议命令: {e.Action}");
+                                break;
+                        }
+                        
+                        _logger.LogInformation($"URL协议命令 '{e.Action}' 执行完成");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"执行URL协议命令失败: {ex.Message}");
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Normal);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"处理URL协议命令失败: {ex.Message}");
+            }
         }
     }
 }

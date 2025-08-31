@@ -43,7 +43,27 @@ namespace AudioRecorder.Services
 
         private LoggingService()
         {
-            _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+            // 优先使用用户AppData目录，避免安装目录权限问题
+            try
+            {
+                var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                _logDirectory = Path.Combine(appDataPath, "AudioRecorder", "logs");
+            }
+            catch
+            {
+                try
+                {
+                    // 备用方案：使用用户文档目录
+                    var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    _logDirectory = Path.Combine(documentsPath, "AudioRecorder", "logs");
+                }
+                catch
+                {
+                    // 最后备用方案：使用当前目录
+                    _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                }
+            }
+            
             _logFilePath = Path.Combine(_logDirectory, $"AudioRecorder_{DateTime.Now:yyyyMMdd}.log");
             _maxLogFileSizeMB = 10; // 最大日志文件大小10MB
             _maxLogFiles = 30; // 保留30个日志文件
@@ -52,7 +72,18 @@ namespace AudioRecorder.Services
             _cancellationTokenSource = new CancellationTokenSource();
 
             // 确保日志目录存在
-            Directory.CreateDirectory(_logDirectory);
+            try
+            {
+                Directory.CreateDirectory(_logDirectory);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"创建日志目录失败: {ex.Message}");
+                // 如果创建失败，尝试使用当前目录
+                _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                _logFilePath = Path.Combine(_logDirectory, $"AudioRecorder_{DateTime.Now:yyyyMMdd}.log");
+                Directory.CreateDirectory(_logDirectory);
+            }
 
             // 启动日志写入线程
             _logWriterThread = new Thread(LogWriterWorker)

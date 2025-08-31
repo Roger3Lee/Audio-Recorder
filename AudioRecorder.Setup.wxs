@@ -29,10 +29,6 @@
     <!-- 安装目录结构 -->
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="AudioRecorder">
-        <!-- 创建Audio子文件夹用于存储录音文件 -->
-        <Directory Id="AudioFolder" Name="Audio" />
-        <!-- 创建log子文件夹用于存储日志文件 -->
-        <Directory Id="LogFolder" Name="log" />
       </Directory>
     </StandardDirectory>
     
@@ -112,23 +108,6 @@
               Source="bin\Release\net8.0-windows\win-x64\publish\D3DCompiler_47_cor3.dll" KeyPath="yes" />
       </Component>
         
-       <!-- Audio文件夹组件 -->
-      <Component Id="AudioFolderComponent" Directory="AudioFolder" Guid="*">
-        <CreateFolder />
-        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
-                       Name="AudioFolder" Value="[AudioFolder]" Type="string" KeyPath="yes" />
-        <!-- 卸载时清理注册表项 -->
-        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Folders" Action="removeOnUninstall" />
-      </Component>
-      
-      <!-- Log文件夹组件 -->
-      <Component Id="LogFolderComponent" Directory="LogFolder" Guid="*">
-        <CreateFolder />
-        <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
-                       Name="LogFolder" Value="[LogFolder]" Type="string" KeyPath="yes" />
-        <!-- 卸载时清理注册表项 -->
-        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Folders" Action="removeOnUninstall" />
-      </Component>
     </ComponentGroup>
     
     <!-- 快捷方式组件 -->

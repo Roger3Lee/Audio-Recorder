@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioRecorder URL 协议测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .test-button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-button.success {
+            background-color: #28a745;
+        }
+        .test-button.warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .test-button.danger {
+            background-color: #dc3545;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 AudioRecorder URL 协议测试</h1>
+        
+        <div class="info">
+            <strong>说明：</strong> 这个页面用于测试 AudioRecorder 的 URL 协议功能。
+            点击下面的按钮应该能够启动 AudioRecorder 程序并执行相应的操作。
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 基本操作测试</h3>
+            <p>测试基本的 URL 协议调用：</p>
+            <a href="audiorecorder://" class="test-button">启动程序</a>
+            <a href="audiorecorder://show" class="test-button">显示窗口</a>
+        </div>
+
+        <div class="test-section">
+            <h3>⏺️ 录音控制测试</h3>
+            <p>测试录音相关的 URL 协议命令：</p>
+            <a href="audiorecorder://action=start" class="test-button success">开始录音</a>
+            <a href="audiorecorder://action=stop" class="test-button danger">停止录音</a>
+            <a href="audiorecorder://action=pause" class="test-button warning">暂停录音</a>
+            <a href="audiorecorder://action=resume" class="test-button success">恢复录音</a>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 高级测试</h3>
+            <p>测试带参数的 URL 协议命令：</p>
+            <a href="audiorecorder://action=start&quality=high" class="test-button">高质量录音</a>
+            <a href="audiorecorder://action=stop&save=true" class="test-button">停止并保存</a>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 测试步骤</h3>
+            <ol>
+                <li>确保 AudioRecorder 程序已安装</li>
+                <li>点击上面的任意按钮</li>
+                <li>观察程序是否启动</li>
+                <li>检查程序是否执行了相应操作</li>
+                <li>查看控制台输出和日志</li>
+            </ol>
+        </div>
+
+        <div class="warning">
+            <strong>注意：</strong> 如果点击链接后程序没有启动，请检查：
+            <ul>
+                <li>程序是否正确安装</li>
+                <li>URL 协议是否正确注册</li>
+                <li>注册表项是否存在</li>
+                <li>程序路径是否正确</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 故障排除</h3>
+            <p>如果遇到问题，请运行以下命令检查：</p>
+            <div class="log"># 检查注册表项
+reg query "HKCU\Software\Classes\audiorecorder" /s
+
+# 检查进程
+tasklist /FI "IMAGENAME eq AudioRecorder.exe"
+
+# 手动测试
+start "" "audiorecorder://action=start"</div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 测试日志</h3>
+            <div id="log" class="log">等待测试开始...</div>
+            <button onclick="clearLog()" class="test-button">清空日志</button>
+        </div>
+    </div>
+
+    <script>
+        // 记录测试日志
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // 清空日志
+        function clearLog() {
+            document.getElementById('log').textContent = '日志已清空...\n';
+        }
+
+        // 页面加载时记录
+        window.onload = function() {
+            log('页面加载完成，开始测试...');
+            log('请点击上面的按钮测试 URL 协议功能');
+        };
+
+        // 监听页面可见性变化（可能由 URL 协议调用引起）
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                log('页面变为隐藏状态，可能是程序启动');
+            } else {
+                log('页面变为可见状态');
+            }
+        });
+
+        // 记录所有链接点击
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.href.includes('audiorecorder://')) {
+                log(`点击了链接: ${e.target.href}`);
+                log('等待程序响应...');
+            }
+        });
+    </script>
+</body>
+</html>

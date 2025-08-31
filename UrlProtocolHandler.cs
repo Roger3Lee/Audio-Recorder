@@ -17,6 +17,9 @@ namespace AudioRecorder
         private const string PROTOCOL_DESCRIPTION = "Audio Recorder Protocol";
         private static readonly ILogger _logger = LoggingServiceManager.CreateLogger("UrlProtocolHandler");
         
+        // 事件：当收到URL协议调用时触发
+        public static event EventHandler<ProtocolActionEventArgs>? ProtocolActionReceived;
+        
         /// <summary>
         /// 注册URL协议
         /// </summary>
@@ -24,10 +27,10 @@ namespace AudioRecorder
         {
             try
             {
-                string exePath = Assembly.GetExecutingAssembly().Location;
+                string exePath = Process.GetCurrentProcess().MainModule?.FileName;
                 if (string.IsNullOrEmpty(exePath))
                 {
-                    exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                    exePath = Assembly.GetExecutingAssembly().Location;
                 }
 
                 if (string.IsNullOrEmpty(exePath))
@@ -35,8 +38,8 @@ namespace AudioRecorder
                     throw new InvalidOperationException("无法获取可执行文件路径");
                 }
 
-                // 注册协议到注册表
-                using (RegistryKey key = Registry.ClassesRoot.CreateSubKey(PROTOCOL_NAME))
+                // 使用HKCU注册表，避免权限问题
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey($"Software\\Classes\\{PROTOCOL_NAME}"))
                 {
                     key.SetValue("", PROTOCOL_DESCRIPTION);
                     key.SetValue("URL Protocol", "");
@@ -47,7 +50,7 @@ namespace AudioRecorder
                     }
                 }
 
-                _logger.LogInformation($"URL协议 {PROTOCOL_NAME}:// 注册成功");
+                _logger.LogInformation($"URL协议 {PROTOCOL_NAME}:// 注册成功到用户注册表");
             }
             catch (Exception ex)
             {
@@ -62,7 +65,7 @@ namespace AudioRecorder
         {
             try
             {
-                Registry.ClassesRoot.DeleteSubKeyTree(PROTOCOL_NAME, false);
+                Registry.CurrentUser.DeleteSubKeyTree($"Software\\Classes\\{PROTOCOL_NAME}", false);
                 _logger.LogInformation($"URL协议 {PROTOCOL_NAME}:// 注销成功");
             }
             catch (Exception ex)
@@ -112,6 +115,9 @@ namespace AudioRecorder
                 return;
             }
 
+            parameters = parameters.Replace("/", "");
+            _logger.LogInformation($"处理参数: {parameters}");
+            
             // 解析参数，支持多种格式
             if (parameters.Contains("action="))
             {
@@ -119,17 +125,40 @@ namespace AudioRecorder
                 if (parameters.Contains("action=start"))
                 {
                     _logger.LogInformation("收到启动录音命令");
-                    // 这里可以触发启动录音的逻辑
+                    // 触发事件，通知主窗口启动录音
+                    ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "start" });
                 }
                 else if (parameters.Contains("action=stop"))
                 {
                     _logger.LogInformation("收到停止录音命令");
-                    // 这里可以触发停止录音的逻辑
+                    // 触发事件，通知主窗口停止录音
+                    ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "stop" });
+                }
+                else if (parameters.Contains("action=pause"))
+                {
+                    _logger.LogInformation("收到暂停录音命令");
+                    // 触发事件，通知主窗口暂停录音
+                    ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "pause" });
+                }
+                else if (parameters.Contains("action=resume"))
+                {
+                    _logger.LogInformation("收到恢复录音命令");
+                    // 触发事件，通知主窗口恢复录音
+                    ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "resume" });
                 }
             }
-
-            // 可以添加更多参数处理逻辑
-            _logger.LogInformation($"处理参数: {parameters}");
+            else if (parameters.Contains("show"))
+            {
+                _logger.LogInformation("收到显示窗口命令");
+                // 触发事件，通知主窗口显示
+                ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "show" });
+            }
+            else
+            {
+                _logger.LogInformation("收到未知命令，默认显示窗口");
+                // 触发事件，通知主窗口显示
+                ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "show" });
+            }
         }
 
         /// <summary>
@@ -140,7 +169,7 @@ namespace AudioRecorder
         {
             try
             {
-                using (RegistryKey key = Registry.ClassesRoot.OpenSubKey(PROTOCOL_NAME))
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey($"Software\\Classes\\{PROTOCOL_NAME}"))
                 {
                     return key != null;
                 }
@@ -150,5 +179,14 @@ namespace AudioRecorder
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// URL协议事件参数
+    /// </summary>
+    public class ProtocolActionEventArgs : EventArgs
+    {
+        public string Action { get; set; } = string.Empty;
+        public Dictionary<string, string> Parameters { get; set; } = new Dictionary<string, string>();
     }
 }
