@@ -78,6 +78,17 @@ namespace AudioRecorder
         /// </summary>
         public string? GetCurrentMicrophonePath() => currentMicrophonePath;
 
+        /// <summary>
+        /// 清理文件路径（在上传完成后调用）
+        /// </summary>
+        public void ClearFilePaths()
+        {
+            _logger.LogInformation("清理文件路径: 系统音频={SystemPath}, 麦克风={MicPath}", 
+                currentSystemAudioPath, currentMicrophonePath);
+            currentSystemAudioPath = null;
+            currentMicrophonePath = null;
+        }
+
         public SimpleAudioRecorder()
         {
             _logger = LoggingServiceManager.CreateLogger("SimpleAudioRecorder");
@@ -763,9 +774,10 @@ namespace AudioRecorder
                 systemVolumeMultiplier = 1.0f;
                 micVolumeMultiplier = 1.0f;
 
-                // 清理文件路径
-                currentSystemAudioPath = null;
-                currentMicrophonePath = null;
+                // 注意：不在这里清理文件路径，保留给上传功能使用
+                // 文件路径将在上传完成后或手动清理时清除
+                _logger.LogInformation("录制已停止，文件路径保留: 系统音频={SystemPath}, 麦克风={MicPath}", 
+                    currentSystemAudioPath, currentMicrophonePath);
 
                 StatusChanged?.Invoke(this, "⏹ 录制已停止，文件已保存。");
             }

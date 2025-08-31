@@ -98,7 +98,7 @@ namespace AudioRecorder
                 var config = ConfigurationService.Instance;
                 if (config.UploadSettings.EnableAutoUpload)
                 {
-                    uploadService = new AudioFileUploadService(config.UploadSettings, new ConsoleLogger());
+                    uploadService = new AudioFileUploadService(config.UploadSettings);
                     uploadService.UploadProgressChanged += OnUploadProgressChanged;
                     uploadService.UploadErrorOccurred += OnUploadErrorOccurred;
                     uploadService.UploadCompleted += OnUploadCompleted;
@@ -575,17 +575,12 @@ namespace AudioRecorder
             // 如果正在录制，先停止录制
             if (isRecording && recorder != null)
             {
-                recorder.StopRecording();
-                isRecording = false;
-                
-                // 自动上传录音文件
-                if (uploadService != null)
-                {
-                    AutoUploadRecordingFiles();
-                }
+                ShowStopConfirmOverlay();
             }
-            
-            this.Close();
+            else
+            {
+                this.Close();
+            }
         }
 
         // 窗口拖拽
@@ -834,32 +829,70 @@ namespace AudioRecorder
 
         private async void AutoUploadRecordingFiles()
         {
-            if (uploadService == null || recorder == null) return;
+            if (uploadService == null || recorder == null) 
+            {
+                _logger.LogWarning("上传服务或录音器未初始化，跳过自动上传");
+                return;
+            }
 
             try
             {
                 var systemAudioPath = recorder.GetCurrentSystemAudioPath();
                 var microphonePath = recorder.GetCurrentMicrophonePath();
 
+                _logger.LogInformation("准备自动上传录音文件: 系统音频={SystemPath}, 麦克风={MicPath}", 
+                    systemAudioPath, microphonePath);
+
                 if (!string.IsNullOrEmpty(systemAudioPath) && !string.IsNullOrEmpty(microphonePath))
                 {
+                    // 验证文件是否存在
+                    if (!File.Exists(systemAudioPath))
+                    {
+                        _logger.LogError("系统音频文件不存在: {Path}", systemAudioPath);
+                        return;
+                    }
+                    
+                    if (!File.Exists(microphonePath))
+                    {
+                        _logger.LogError("麦克风音频文件不存在: {Path}", microphonePath);
+                        return;
+                    }
+
+                    // 获取文件大小信息
+                    var systemFileInfo = new FileInfo(systemAudioPath);
+                    var micFileInfo = new FileInfo(microphonePath);
+                    
+                    _logger.LogInformation("文件验证通过，准备上传: 系统音频={SystemFile}({Size}字节), 麦克风={MicFile}({Size}字节)", 
+                        Path.GetFileName(systemAudioPath), systemFileInfo.Length,
+                        Path.GetFileName(microphonePath), micFileInfo.Length);
+
+                    // 等待一秒确保文件写入完成
                     await System.Threading.Tasks.Task.Delay(1000);
 
                     _ = System.Threading.Tasks.Task.Run(async () =>
                     {
                         try
                         {
+                            _logger.LogInformation("开始后台上传任务");
                             await uploadService.UploadAudioFilesAsync(systemAudioPath, microphonePath);
+                            _logger.LogInformation("后台上传任务完成");
                         }
                         catch (Exception ex)
                         {
+                            _logger.LogError(ex, "后台上传任务失败");
                             Console.WriteLine($"❌ 自动上传失败: {ex.Message}");
                         }
                     });
                 }
+                else
+                {
+                    _logger.LogWarning("录音文件路径为空，跳过上传: 系统音频={SystemPath}, 麦克风={MicPath}", 
+                        systemAudioPath, microphonePath);
+                }
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "准备上传文件时发生异常");
                 Console.WriteLine($"❌ 准备上传文件失败: {ex.Message}");
             }
         }
@@ -872,11 +905,23 @@ namespace AudioRecorder
         private void OnUploadErrorOccurred(object? sender, Exception exception)
         {
             Console.WriteLine($"❌ 上传错误: {exception.Message}");
+            
+            // 上传出错后也清理录音器中的文件路径
+            if (recorder != null)
+            {
+                recorder.ClearFilePaths();
+            }
         }
 
         private void OnUploadCompleted(object? sender, string message)
         {
             Console.WriteLine($"✅ {message}");
+            
+            // 上传完成后清理录音器中的文件路径
+            if (recorder != null)
+            {
+                recorder.ClearFilePaths();
+            }
         }
 
         #endregion

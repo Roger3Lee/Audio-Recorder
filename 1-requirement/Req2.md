@@ -9,11 +9,11 @@
 - 浏览器通过websocket控制录音开始， 结束和暂停。
 
 ## 要补充的功能
-- 录音文件需要实时上传到服务器端
-```
-客户端用到文件上传接口
-/admin-api/asr/file/upload-multiple
-接口例子
+- 调整录音界面
+- 需要支持暂停功能， 暂停恢复后，在原录音文件追加后续录音音频
+- 录音文件需要实时上传到服务器端, 服务端的接口如下：
+``` bash
+-- 接口例子
 curl --request POST \
   --url http://10.10.21.67:38080/admin-api/asr/file/upload-multiple \
   --header 'Accept: */*' \
@@ -30,3 +30,10 @@ curl --request POST \
   --form 'files=@[object Object]' \
   --form mergeAudio=true
 ```
+- 界面需要调整
+  - 默认页面：image.png
+  - 点击右侧展开 
+
+# 约束
+- ***增加*** 上传文件功能，同时上传系统音频和麦克风音频
+- ***配置*** 上传文件接口地址， 并在打包客户端的时候包含配置文件
