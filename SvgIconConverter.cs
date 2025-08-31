@@ -5,6 +5,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Controls;
 using WpfPoint = System.Windows.Point;
 using WpfColor = System.Windows.Media.Color;
+using Microsoft.Extensions.Logging;
+using AudioRecorder.Services;
 
 namespace AudioRecorder
 {
@@ -13,6 +15,8 @@ namespace AudioRecorder
     /// </summary>
     public static class SvgIconConverter
     {
+        private static readonly ILogger _logger = LoggingServiceManager.CreateLogger("SvgIconConverter");
+        
         /// <summary>
         /// 创建高质量图标
         /// </summary>
@@ -166,7 +170,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"设置图标失败 {iconName}: {ex.Message}");
+                _logger.LogError($"设置图标失败 {iconName}: {ex.Message}");
             }
         }
 

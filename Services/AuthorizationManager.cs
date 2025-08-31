@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using AudioRecorder.Models;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -19,6 +20,7 @@ namespace AudioRecorder.Services
         private readonly LocalHttpServer _httpServer;
         private readonly HttpClient _httpClient;
         private readonly OAuthConfig _config;
+        private readonly ILogger _logger;
 
         public event EventHandler<TokenInfo>? AuthorizationCompleted;
         public event EventHandler<string>? AuthorizationFailed;
@@ -30,6 +32,7 @@ namespace AudioRecorder.Services
             _storageManager = new SecureStorageManager();
             _httpServer = new LocalHttpServer();
             _httpClient = new HttpClient();
+            _logger = LoggingServiceManager.CreateLogger("AuthorizationManager");
 
             // 订阅HTTP服务器事件
             _httpServer.AuthorizationCodeReceived += OnAuthorizationCodeReceived;
@@ -43,7 +46,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                Console.WriteLine($"🚀 开始 {_config.ProviderName} OAuth授权流程");
+                _logger.LogInformation($"🚀 开始 {_config.ProviderName} OAuth授权流程");
 
                 // 1. 启动本地HTTP服务器
                 var serverStarted = await _httpServer.StartAsync();
@@ -54,7 +57,7 @@ namespace AudioRecorder.Services
 
                 // 2. 构建授权URL
                 var authUrl = BuildAuthorizationUrl();
-                Console.WriteLine($"🔗 授权URL: {authUrl}");
+                _logger.LogInformation($"🔗 授权URL: {authUrl}");
 
                 // 3. 打开浏览器
                 OpenBrowser(authUrl);
@@ -63,7 +66,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 启动授权流程失败: {ex.Message}");
+                _logger.LogError($"❌ 启动授权流程失败: {ex.Message}");
                 AuthorizationFailed?.Invoke(this, ex.Message);
                 return false;
             }
@@ -116,7 +119,7 @@ namespace AudioRecorder.Services
                 };
 
                 Process.Start(processStartInfo);
-                Console.WriteLine("🌐 已在默认浏览器中打开授权页面");
+                _logger.LogInformation("🌐 已在默认浏览器中打开授权页面");
             }
             catch (Exception ex)
             {

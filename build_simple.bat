@@ -25,7 +25,13 @@ wix --version
 echo.
 
 echo Building application...
-dotnet publish AudioRecorder.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+echo Cleaning publish directory for complete rebuild...
+if exist "bin/Release/net8.0-windows/win-x64/publish" (
+    rmdir /s /q "bin/Release/net8.0-windows/win-x64/publish"
+    echo [OK] Publish directory cleaned
+)
+
+dotnet publish AudioRecorder.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o "bin/Release/net8.0-windows/win-x64/publish"
 
 if %errorlevel% neq 0 (
     echo [ERROR] Application build failed!
@@ -71,39 +77,13 @@ if %errorlevel% neq 0 (
     echo Trying alternative method...
     echo Using MSBuild...
     
-    dotnet build AudioRecorder.Setup.wixproj
+    wix build AudioRecorder.Setup.wxs -out AudioRecorder.msi
     
     if %errorlevel% neq 0 (
         echo [ERROR] Alternative build method also failed!
         pause
         exit /b 1
     )
-)
-
-echo [OK] Installer package build successful!
-echo.
-
-echo Looking for generated installer package...
-if exist "AudioRecorder_Complete.msi" (
-    echo Generated installer package: AudioRecorder_Complete.msi
-    echo Package size:
-    for %%A in ("AudioRecorder_Complete.msi") do echo    %%~zA bytes
-    echo.
-    echo Installer package features:
-    echo    User can choose installation directory
-    echo    Complete install/uninstall interface
-    echo    Start menu shortcuts
-    echo    Desktop shortcuts
-    echo    Prevent duplicate installation
-    echo    Automatic version detection and upgrade
-    echo    Custom application icon
-    echo    audiorecorder:// protocol support
-    echo    .audiorecord file association
-    echo    Auto-register protocol after installation
-) else (
-    echo [ERROR] Generated installer package file not found
-    pause
-    exit /b 1
 )
 
 :found

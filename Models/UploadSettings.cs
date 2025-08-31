@@ -88,5 +88,11 @@ namespace AudioRecorder.Models
         /// 缓冲区持续时间（秒）
         /// </summary>
         public int BufferDuration { get; set; } = 2;
+
+        /// <summary>
+        /// 录音文件保存路径类型
+        /// 可选值: Documents, AppData, Desktop, Install
+        /// </summary>
+        public string AudioSavePath { get; set; } = "Documents";
     }
 }

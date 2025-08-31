@@ -82,12 +82,60 @@ namespace AudioRecorder
         {
             _logger = LoggingServiceManager.CreateLogger("SimpleAudioRecorder");
             
-            // 创建程序目录下的Audio文件夹
-            string audioDir = Path.Combine(AppContext.BaseDirectory, "Audio");
+            // 创建用户文档目录下的Audio文件夹，避免安装目录权限问题
+            string audioDir = GetAudioDirectory();
             Directory.CreateDirectory(audioDir);
             
             // 从配置文件读取音频设置
             LoadAudioSettings();
+        }
+
+        /// <summary>
+        /// 获取录音文件保存目录
+        /// 优先使用用户文档目录，避免安装目录权限问题
+        /// </summary>
+        private string GetAudioDirectory()
+        {
+            try
+            {
+                var config = ConfigurationService.Instance;
+                string savePathType = config.AudioSettings.AudioSavePath ?? "Documents";
+                
+                string basePath;
+                switch (savePathType.ToLower())
+                {
+                    case "documents":
+                    default:
+                        // 使用用户文档目录
+                        basePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                        break;
+                    case "appdata":
+                        // 使用用户AppData目录
+                        basePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                        break;
+                    case "desktop":
+                        // 使用桌面目录
+                        basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                        break;
+                    case "install":
+                        // 使用安装目录（需要管理员权限）
+                        basePath = AppContext.BaseDirectory;
+                        break;
+                }
+                
+                string audioDir = Path.Combine(basePath, "AudioRecorder", "Audio");
+                _logger.LogInformation("录音文件保存目录: {AudioDir} (类型: {SavePathType})", audioDir, savePathType);
+                
+                return audioDir;
+            }
+            catch (Exception ex)
+            {
+                // 如果配置读取失败，使用默认的文档目录
+                string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string audioDir = Path.Combine(documentsPath, "AudioRecorder", "Audio");
+                _logger.LogWarning(ex, "配置读取失败，使用默认文档目录: {AudioDir}", audioDir);
+                return audioDir;
+            }
         }
 
         /// <summary>
@@ -133,19 +181,56 @@ namespace AudioRecorder
             {
                 isRecording = true;
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string baseDir = Path.Combine(AppContext.BaseDirectory, "Audio");
+                string baseDir = GetAudioDirectory();
+                
+                _logger.LogInformation("录音目录: {BaseDir}", baseDir);
+                
+                // 检查并创建录音目录
+                if (!Directory.Exists(baseDir))
+                {
+                    _logger.LogInformation("创建录音目录: {BaseDir}", baseDir);
+                    Directory.CreateDirectory(baseDir);
+                }
+                
+                // 检查目录权限
+                try
+                {
+                    string testFile = Path.Combine(baseDir, "test_permissions.tmp");
+                    File.WriteAllText(testFile, "test");
+                    File.Delete(testFile);
+                    _logger.LogInformation("目录权限检查通过");
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"录音目录权限不足: {ex.Message}");
+                }
                 
                 // 创建两个独立的输出文件
                 string systemAudioPath = Path.Combine(baseDir, $"SystemAudio_{timestamp}.wav");
                 string microphonePath = Path.Combine(baseDir, $"Microphone_{timestamp}.wav");
+                
+                _logger.LogInformation("系统音频文件: {SystemPath}", systemAudioPath);
+                _logger.LogInformation("麦克风文件: {MicPath}", microphonePath);
                 
                 // 保存文件路径（用于上传）
                 currentSystemAudioPath = systemAudioPath;
                 currentMicrophonePath = microphonePath;
                 
                 var outputFormat = new WaveFormat(targetSampleRate, targetBitsPerSample, targetChannels);
+                _logger.LogInformation("输出音频格式: {SampleRate}Hz, {Channels}声道, {BitsPerSample}位", 
+                    outputFormat.SampleRate, outputFormat.Channels, outputFormat.BitsPerSample);
+                
+                // 创建音频写入器
+                try
+                {
                 systemAudioWriter = new WaveFileWriter(systemAudioPath, outputFormat);
                 microphoneAudioWriter = new WaveFileWriter(microphonePath, outputFormat);
+                    _logger.LogInformation("音频文件写入器创建成功");
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"创建音频文件写入器失败: {ex.Message}");
+                }
 
                 // 初始化用于音量监控的设备
                 defaultRenderDevice = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -170,12 +255,38 @@ namespace AudioRecorder
 
         private void SetupSystemAudioSource()
         {
+            try
+            {
+                _logger.LogInformation("正在初始化系统音频捕获...");
+                
+                // 检查是否有可用的音频设备
+                var enumerator = new MMDeviceEnumerator();
+                var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                if (defaultDevice == null)
+                {
+                    throw new InvalidOperationException("未找到默认音频输出设备");
+                }
+                
+                _logger.LogInformation("默认音频设备: {DeviceName}, 格式: {Format}", 
+                    defaultDevice.FriendlyName, defaultDevice.AudioClient?.MixFormat);
+                
             systemAudioCapture = new WasapiLoopbackCapture();
+                if (systemAudioCapture.WaveFormat == null)
+                {
+                    throw new InvalidOperationException("系统音频捕获格式初始化失败");
+                }
+                
+                _logger.LogInformation("系统音频格式: {SampleRate}Hz, {Channels}声道, {BitsPerSample}位", 
+                    systemAudioCapture.WaveFormat.SampleRate, 
+                    systemAudioCapture.WaveFormat.Channels, 
+                    systemAudioCapture.WaveFormat.BitsPerSample);
+                
             systemAudioBuffer = new BufferedWaveProvider(systemAudioCapture.WaveFormat)
             {
                 DiscardOnBufferOverflow = true,
                 BufferDuration = TimeSpan.FromSeconds(2) // 适中的缓冲区
             };
+                
             systemAudioCapture.DataAvailable += (s, e) =>
             {
                 systemAudioBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
@@ -183,18 +294,59 @@ namespace AudioRecorder
                 // 计算系统音频电平（用于自动音量调整）
                 CalculateSystemAudioLevel(e.Buffer, 0, e.BytesRecorded);
             };
+                
             systemAudioCapture.StartRecording();
+                _logger.LogInformation("系统音频捕获已启动");
             StatusChanged?.Invoke(this, "🔊 系统音频捕获已启动。");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "系统音频捕获初始化失败");
+                throw new Exception($"系统音频捕获初始化失败: {ex.Message}", ex);
+            }
         }
 
         private void SetupMicrophoneSource()
         {
+            try
+            {
+                _logger.LogInformation("正在初始化麦克风捕获...");
+                
+                // 检查可用的麦克风设备
+                var waveInDevices = new List<WaveInCapabilities>();
+                for (int i = 0; i < WaveIn.DeviceCount; i++)
+                {
+                    waveInDevices.Add(WaveIn.GetCapabilities(i));
+                }
+                
+                if (waveInDevices.Count == 0)
+                {
+                    throw new InvalidOperationException("未找到可用的麦克风设备");
+                }
+                
+                _logger.LogInformation("找到 {DeviceCount} 个麦克风设备", waveInDevices.Count);
+                foreach (var device in waveInDevices)
+                {
+                    _logger.LogInformation("麦克风设备: {DeviceName}", device.ProductName);
+                }
+                
             microphoneCapture = new WaveInEvent();
+                if (microphoneCapture.WaveFormat == null)
+                {
+                    throw new InvalidOperationException("麦克风捕获格式初始化失败");
+                }
+                
+                _logger.LogInformation("麦克风格式: {SampleRate}Hz, {Channels}声道, {BitsPerSample}位", 
+                    microphoneCapture.WaveFormat.SampleRate, 
+                    microphoneCapture.WaveFormat.Channels, 
+                    microphoneCapture.WaveFormat.BitsPerSample);
+                
             microphoneBuffer = new BufferedWaveProvider(microphoneCapture.WaveFormat)
             {
                 DiscardOnBufferOverflow = true,
                 BufferDuration = TimeSpan.FromSeconds(2) // 适中的缓冲区
             };
+                
             microphoneCapture.DataAvailable += (s, e) =>
             {
                 microphoneBuffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
@@ -202,8 +354,16 @@ namespace AudioRecorder
                 // 计算麦克风音频电平（用于自动音量调整）
                 CalculateMicrophoneAudioLevel(e.Buffer, 0, e.BytesRecorded);
             };
+                
             microphoneCapture.StartRecording();
+                _logger.LogInformation("麦克风捕获已启动");
             StatusChanged?.Invoke(this, "🎤 麦克风捕获已启动。");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "麦克风捕获初始化失败");
+                throw new Exception($"麦克风捕获初始化失败: {ex.Message}", ex);
+            }
         }
         
         // 计算系统音频电平（用于自动音量调整）
@@ -372,7 +532,7 @@ namespace AudioRecorder
                         else
                         {
                             // 如果禁用实时保存，使用传统写入方式
-                            systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
+                        systemAudioWriter?.WriteSamples(systemBuffer, 0, samplesRead);
                         }
                     }
                 }
@@ -402,7 +562,7 @@ namespace AudioRecorder
                         else
                         {
                             // 如果禁用实时保存，使用传统写入方式
-                            microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
+                        microphoneAudioWriter?.WriteSamples(micBuffer, 0, samplesRead);
                         }
                     }
                 }
@@ -480,11 +640,17 @@ namespace AudioRecorder
 
         private (ISampleProvider systemProvider, ISampleProvider micProvider) BuildSimpleProcessingPipelines()
         {
+            try
+        {
             if (systemAudioBuffer == null || microphoneBuffer == null)
                 throw new InvalidOperationException("音频缓冲区未初始化。");
 
+                _logger.LogInformation("开始构建音频处理管道...");
+
             // 系统音频处理链 - 转换为单声道
             var systemSampleProvider = systemAudioBuffer.ToSampleProvider();
+                _logger.LogInformation("系统音频原始格式: {SampleRate}Hz, {Channels}声道", 
+                    systemSampleProvider.WaveFormat.SampleRate, systemSampleProvider.WaveFormat.Channels);
             
             // 转换为单声道（如果是立体声则混合）
             if (systemSampleProvider.WaveFormat.Channels > 1)
@@ -527,7 +693,14 @@ namespace AudioRecorder
             // 音量控制
             microphoneVolumeProvider = new VolumeSampleProvider(micSampleProvider) { Volume = 1.0f };
 
+            _logger.LogInformation("音频处理管道构建完成");
             return (systemVolumeProvider, microphoneVolumeProvider);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "构建音频处理管道失败");
+                throw new Exception($"构建音频处理管道失败: {ex.Message}", ex);
+            }
         }
 
         public void StopRecording()

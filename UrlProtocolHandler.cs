@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Microsoft.Win32;
+using Microsoft.Extensions.Logging;
+using AudioRecorder.Services;
 
 namespace AudioRecorder
 {
@@ -13,6 +15,7 @@ namespace AudioRecorder
     {
         private const string PROTOCOL_NAME = "audiorecorder";
         private const string PROTOCOL_DESCRIPTION = "Audio Recorder Protocol";
+        private static readonly ILogger _logger = LoggingServiceManager.CreateLogger("UrlProtocolHandler");
         
         /// <summary>
         /// 注册URL协议
@@ -44,11 +47,11 @@ namespace AudioRecorder
                     }
                 }
 
-                Console.WriteLine($"URL协议 {PROTOCOL_NAME}:// 注册成功");
+                _logger.LogInformation($"URL协议 {PROTOCOL_NAME}:// 注册成功");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"注册URL协议失败: {ex.Message}");
+                _logger.LogError($"注册URL协议失败: {ex.Message}");
             }
         }
 
@@ -60,11 +63,11 @@ namespace AudioRecorder
             try
             {
                 Registry.ClassesRoot.DeleteSubKeyTree(PROTOCOL_NAME, false);
-                Console.WriteLine($"URL协议 {PROTOCOL_NAME}:// 注销成功");
+                _logger.LogInformation($"URL协议 {PROTOCOL_NAME}:// 注销成功");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"注销URL协议失败: {ex.Message}");
+                _logger.LogError($"注销URL协议失败: {ex.Message}");
             }
         }
 
@@ -78,11 +81,11 @@ namespace AudioRecorder
             {
                 if (string.IsNullOrEmpty(url))
                 {
-                    Console.WriteLine("收到空的URL协议调用");
+                    _logger.LogWarning("收到空的URL协议调用");
                     return;
                 }
 
-                Console.WriteLine($"收到URL协议调用: {url}");
+                _logger.LogInformation($"收到URL协议调用: {url}");
 
                 // 解析URL参数
                 if (url.StartsWith($"{PROTOCOL_NAME}://"))
@@ -93,7 +96,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"处理URL协议失败: {ex.Message}");
+                _logger.LogError($"处理URL协议失败: {ex.Message}");
             }
         }
 
@@ -105,7 +108,7 @@ namespace AudioRecorder
         {
             if (string.IsNullOrEmpty(parameters))
             {
-                Console.WriteLine("没有参数需要处理");
+                _logger.LogInformation("没有参数需要处理");
                 return;
             }
 
@@ -115,18 +118,18 @@ namespace AudioRecorder
                 // 解析action参数
                 if (parameters.Contains("action=start"))
                 {
-                    Console.WriteLine("收到启动录音命令");
+                    _logger.LogInformation("收到启动录音命令");
                     // 这里可以触发启动录音的逻辑
                 }
                 else if (parameters.Contains("action=stop"))
                 {
-                    Console.WriteLine("收到停止录音命令");
+                    _logger.LogInformation("收到停止录音命令");
                     // 这里可以触发停止录音的逻辑
                 }
             }
 
             // 可以添加更多参数处理逻辑
-            Console.WriteLine($"处理参数: {parameters}");
+            _logger.LogInformation($"处理参数: {parameters}");
         }
 
         /// <summary>

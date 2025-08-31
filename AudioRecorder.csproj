@@ -12,10 +12,10 @@
     <Version>1.0.0</Version>
     <Authors>AudioRecorder</Authors>
     <Description>Audio Recorder with mixing capabilities</Description>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRun>false</PublishReadyToRun>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 

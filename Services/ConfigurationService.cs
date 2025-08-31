@@ -16,7 +16,7 @@ namespace AudioRecorder.Services
         private static ConfigurationService? _instance;
         private static readonly object _lock = new object();
         private readonly ILogger _logger;
-        
+
         public UploadSettings UploadSettings { get; private set; }
         public OAuthSettings OAuthSettings { get; private set; }
         public AudioSettings AudioSettings { get; private set; }
@@ -87,9 +87,9 @@ namespace AudioRecorder.Services
                         RealTimeSaveSettings = new RealTimeSaveSettings();
                         _logger.LogWarning("配置文件解析失败，使用默认配置");
                     }
-                }
-                else
-                {
+                    }
+                    else
+                    {
                     UploadSettings = new UploadSettings();
                     OAuthSettings = new OAuthSettings();
                     AudioSettings = new AudioSettings();

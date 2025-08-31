@@ -46,13 +46,10 @@
     
     <!-- 主程序组件 -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- 主程序组件 -->
       <Component Id="MainExecutable" Guid="*">
         <File Id="MainExecutable" Name="AudioRecorder.exe" 
-              Source="binReleasenet8.0-windowswin-x64publish\AudioRecorder.exe" />
-        
-        <!-- 配置文件 -->
-        <File Id="AppSettings" Name="appsettings.json" 
-              Source="appsettings.json" />
+              Source="bin\Release\net8.0-windows\win-x64\publish\AudioRecorder.exe" KeyPath="yes" />
         
         <!-- 注册表信息 - 用于检测已安装版本 -->
         <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\AudioRecorder">
@@ -71,13 +68,57 @@
           <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
           <RegistryValue Name="Version" Value="1.0.0" Type="string" />
         </RegistryKey>
+        
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\AudioRecorder" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder" Action="removeOnUninstall" />
       </Component>
       
-      <!-- Audio文件夹组件 -->
+      <!-- 配置文件组件 -->
+      <Component Id="AppSettingsComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="AppSettings" Name="appsettings.json" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\appsettings.json" KeyPath="yes" />
+      </Component>
+      
+      <!-- 调试符号文件（可选） -->
+      <Component Id="DebugSymbolsComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="DebugSymbols" Name="AudioRecorder.pdb" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\AudioRecorder.pdb" KeyPath="yes" />
+      </Component>
+      
+      <!-- .NET Runtime 依赖文件 -->
+      <Component Id="WpfGfxComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="WpfGfx" Name="wpfgfx_cor3.dll" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\wpfgfx_cor3.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="PenImcComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="PenImc" Name="PenImc_cor3.dll" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\PenImc_cor3.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="VcRuntimeComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="VcRuntime" Name="vcruntime140_cor3.dll" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\vcruntime140_cor3.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="PresentationNativeComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="PresentationNative" Name="PresentationNative_cor3.dll" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\PresentationNative_cor3.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="D3DCompilerComponent" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="D3DCompiler" Name="D3DCompiler_47_cor3.dll" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\D3DCompiler_47_cor3.dll" KeyPath="yes" />
+      </Component>
+        
+       <!-- Audio文件夹组件 -->
       <Component Id="AudioFolderComponent" Directory="AudioFolder" Guid="*">
         <CreateFolder />
         <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
                        Name="AudioFolder" Value="[AudioFolder]" Type="string" KeyPath="yes" />
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Folders" Action="removeOnUninstall" />
       </Component>
       
       <!-- Log文件夹组件 -->
@@ -85,6 +126,8 @@
         <CreateFolder />
         <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Folders" 
                        Name="LogFolder" Value="[LogFolder]" Type="string" KeyPath="yes" />
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Folders" Action="removeOnUninstall" />
       </Component>
     </ComponentGroup>
     
@@ -107,6 +150,9 @@
         
         <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Shortcuts" 
                        Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Shortcuts" Action="removeOnUninstall" />
       </Component>
       
       <!-- 桌面快捷方式 -->
@@ -118,13 +164,16 @@
         
         <RegistryValue Root="HKCU" Key="Software\AudioRecorder\Shortcuts" 
                        Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+        
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Shortcuts" Action="removeOnUninstall" />
       </Component>
     </ComponentGroup>
     
     <!-- URL协议注册组件 -->
     <ComponentGroup Id="ProtocolComponents" Directory="INSTALLFOLDER">
       <Component Id="UrlProtocolRegistry" Guid="*">
-        <!-- 注册 audiorecorder:// 协议 -->
+        <!-- 注册 audiorecorder:// 协议 - 使用HKCU用户级注册 -->
         <RegistryKey Root="HKCU" Key="Software\Classes\audiorecorder">
           <RegistryValue Value="AudioRecorder Protocol" Type="string" />
           <RegistryValue Name="URL Protocol" Value="" Type="string" />
@@ -176,6 +225,12 @@
         <RegistryKey Root="HKCU" Key="Software\AudioRecorder\Capabilities\FileAssociations">
           <RegistryValue Name=".audiorecord" Value="AudioRecorder.Document" Type="string" />
         </RegistryKey>
+        
+        <!-- 卸载时清理注册表项 -->
+        <RemoveRegistryKey Root="HKCU" Key="Software\Classes\audiorecorder" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\Classes\.audiorecord" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\Classes\AudioRecorder.Document" Action="removeOnUninstall" />
+        <RemoveRegistryKey Root="HKCU" Key="Software\AudioRecorder\Capabilities" Action="removeOnUninstall" />
       </Component>
     </ComponentGroup>
     
