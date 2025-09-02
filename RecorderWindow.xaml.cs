@@ -146,7 +146,7 @@ namespace AudioRecorder
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
                 UpdateLoginUI(tokenInfo);
-                Console.WriteLine($"✅ {tokenInfo.Provider}授权完成: {tokenInfo.UserName}");
+                _logger.LogInformation($"✅ {tokenInfo.Provider}授权完成: {tokenInfo.UserName}");
             });
         }
 
@@ -157,7 +157,7 @@ namespace AudioRecorder
                 isLoggedIn = false;
                 currentProvider = null;
                 UpdateLoginUI(null);
-                Console.WriteLine($"❌ {currentProvider}授权失败: {error}");
+                _logger.LogInformation($"❌ {currentProvider}授权失败: {error}");
                 WpfMessageBox.Show($"{currentProvider}授权失败: {error}", "授权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
             });
         }
@@ -169,7 +169,7 @@ namespace AudioRecorder
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
                 UpdateLoginUI(tokenInfo);
-                Console.WriteLine($"🔄 登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}");
+                _logger.LogInformation($"🔄 登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}");
             });
         }
 
@@ -194,7 +194,7 @@ namespace AudioRecorder
                     var provider = providers[0];
                     currentProvider = provider;
                     
-                    Console.WriteLine($"🚀 开始{provider} OAuth登录流程");
+                    _logger.LogInformation($"🚀 开始{provider} OAuth登录流程");
                     var success = await oauthService.StartLoginAsync(provider);
                     if (!success)
                     {
@@ -208,7 +208,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 登录按钮点击事件处理失败: {ex.Message}");
+                _logger.LogInformation($"❌ 登录按钮点击事件处理失败: {ex.Message}");
                 WpfMessageBox.Show($"登录失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -258,13 +258,13 @@ namespace AudioRecorder
                     var restored = await oauthService.RestoreLoginStateAsync();
                     if (restored)
                     {
-                        Console.WriteLine("✅ 登录状态恢复成功");
+                        _logger.LogInformation("✅ 登录状态恢复成功");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 恢复登录状态失败: {ex.Message}");
+                _logger.LogInformation($"❌ 恢复登录状态失败: {ex.Message}");
             }
         }
 
@@ -318,11 +318,11 @@ namespace AudioRecorder
             {
                 // 使用新的图标转换器加载所有图标
                 SvgIconConverter.LoadIconsToWindow(this);
-                Console.WriteLine("✅ 图标加载完成");
+                _logger.LogInformation("✅ 图标加载完成");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 加载图标失败: {ex.Message}");
+                _logger.LogInformation($"❌ 加载图标失败: {ex.Message}");
                 // fallback: 使用文字图标
                 SetFallbackIcons();
             }
@@ -482,7 +482,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 停止录音失败: {ex.Message}");
+                _logger.LogInformation($"❌ 停止录音失败: {ex.Message}");
             }
         }
 
@@ -688,23 +688,23 @@ namespace AudioRecorder
                 var config = ConfigurationService.Instance;
                 var savedPosition = config.GetWindowPosition();
                 
-                if (savedPosition != null)
-                {
-                    // 恢复上次位置
-                    this.Left = savedPosition.X;
-                    this.Top = savedPosition.Y;
-                    Console.WriteLine($"🔄 恢复窗口位置: ({this.Left}, {this.Top})");
-                }
-                else
-                {
+                //if (savedPosition != null)
+                //{
+                //    // 恢复上次位置
+                //    this.Left = savedPosition.X;
+                //    this.Top = savedPosition.Y;
+                //    _logger.LogInformation($"🔄 恢复窗口位置: ({this.Left}, {this.Top})");
+                //}
+                //else
+                //{
                     // 设置默认位置：桌面右中部分
                     SetDefaultWindowPosition();
-                    Console.WriteLine($"📍 设置默认窗口位置: ({this.Left}, {this.Top})");
-                }
+                    _logger.LogInformation($"📍 设置默认窗口位置: ({this.Left}, {this.Top})");
+                //}
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 设置窗口位置失败: {ex.Message}");
+                _logger.LogError($"⚠️ 设置窗口位置失败: {ex.Message}");
                 // 如果出错，使用默认位置
                 SetDefaultWindowPosition();
             }
@@ -721,6 +721,7 @@ namespace AudioRecorder
                 var screen = System.Windows.Forms.Screen.PrimaryScreen;
                 if (screen != null)
                 {
+                    _logger.LogInformation($"⚠️ 设置主屏幕的工作区域");
                     var workingArea = screen.WorkingArea;
                     
                     // 计算右中位置（考虑窗口尺寸）
@@ -732,6 +733,7 @@ namespace AudioRecorder
                 }
                 else
                 {
+                    _logger.LogInformation($"⚠️ 使用固定位置");
                     // 如果无法获取屏幕信息，使用固定位置
                     this.Left = System.Windows.SystemParameters.WorkArea.Width - 220; // 距离右边缘220像素
                     this.Top = System.Windows.SystemParameters.WorkArea.Height / 2 - 100; // 垂直居中
@@ -739,7 +741,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 设置默认窗口位置失败: {ex.Message}");
+                _logger.LogError($"⚠️ 设置默认窗口位置失败: {ex.Message}");
                 // 使用系统默认位置
             }
         }
@@ -759,11 +761,11 @@ namespace AudioRecorder
                     LastSaved = DateTime.Now
                 };
                 config.SaveWindowPosition(position);
-                Console.WriteLine($"💾 保存窗口位置: ({position.X}, {position.Y})");
+                _logger.LogInformation($"💾 保存窗口位置: ({position.X}, {position.Y})");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 保存窗口位置失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 保存窗口位置失败: {ex.Message}");
             }
         }
 
@@ -796,7 +798,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 检查窗口边界失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 检查窗口边界失败: {ex.Message}");
                 return false; // 如果出错，不保存位置
             }
         }
@@ -880,7 +882,7 @@ namespace AudioRecorder
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "后台上传任务失败");
-                            Console.WriteLine($"❌ 自动上传失败: {ex.Message}");
+                            _logger.LogInformation($"❌ 自动上传失败: {ex.Message}");
                         }
                     });
                 }
@@ -893,35 +895,23 @@ namespace AudioRecorder
             catch (Exception ex)
             {
                 _logger.LogError(ex, "准备上传文件时发生异常");
-                Console.WriteLine($"❌ 准备上传文件失败: {ex.Message}");
+                _logger.LogInformation($"❌ 准备上传文件失败: {ex.Message}");
             }
         }
 
         private void OnUploadProgressChanged(object? sender, string message)
         {
-            Console.WriteLine($"📤 {message}");
+            _logger.LogInformation($"📤 {message}");
         }
 
         private void OnUploadErrorOccurred(object? sender, Exception exception)
         {
-            Console.WriteLine($"❌ 上传错误: {exception.Message}");
-            
-            // 上传出错后也清理录音器中的文件路径
-            if (recorder != null)
-            {
-                recorder.ClearFilePaths();
-            }
+            _logger.LogInformation($"❌ 上传错误: {exception.Message}");
         }
 
         private void OnUploadCompleted(object? sender, string message)
         {
-            Console.WriteLine($"✅ {message}");
-            
-            // 上传完成后清理录音器中的文件路径
-            if (recorder != null)
-            {
-                recorder.ClearFilePaths();
-            }
+            _logger.LogInformation($"✅ {message}");
         }
 
         #endregion

@@ -78,17 +78,6 @@ namespace AudioRecorder
         /// </summary>
         public string? GetCurrentMicrophonePath() => currentMicrophonePath;
 
-        /// <summary>
-        /// 清理文件路径（在上传完成后调用）
-        /// </summary>
-        public void ClearFilePaths()
-        {
-            _logger.LogInformation("清理文件路径: 系统音频={SystemPath}, 麦克风={MicPath}", 
-                currentSystemAudioPath, currentMicrophonePath);
-            currentSystemAudioPath = null;
-            currentMicrophonePath = null;
-        }
-
         public SimpleAudioRecorder()
         {
             _logger = LoggingServiceManager.CreateLogger("SimpleAudioRecorder");
@@ -110,7 +99,7 @@ namespace AudioRecorder
             try
             {
                 var config = ConfigurationService.Instance;
-                string savePathType = config.AudioSettings.AudioSavePath ?? "Documents";
+                string savePathType = config.AudioSettings.AudioSavePath ?? "appdata";
                 
                 string basePath;
                 switch (savePathType.ToLower())
