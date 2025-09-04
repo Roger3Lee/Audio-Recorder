@@ -115,11 +115,15 @@ namespace AudioRecorder.Services
                         _logger.LogInformation("OAuth认证状态: {AuthStatus}", OAuthSettings.EnableAuthentication ? "已启用" : "已禁用");
                         
                         // 记录OAuth提供商配置状态
+                        var genericOAuthConfigured = !string.IsNullOrEmpty(OAuthSettings.OauthServer.ServerUrl) && 
+                                                   !string.IsNullOrEmpty(OAuthSettings.OauthServer.ClientId) &&
+                                                   OAuthSettings.OauthServer.ClientId != "audio_recorder";
                         var githubConfigured = !string.IsNullOrEmpty(OAuthSettings.GitHub.ClientId) && 
                                             OAuthSettings.GitHub.ClientId != "your-github-client-id";
                         var googleConfigured = !string.IsNullOrEmpty(OAuthSettings.Google.ClientId) && 
                                              OAuthSettings.Google.ClientId != "your-google-client-id";
                         
+                        _logger.LogInformation("通用OAuth服务器配置: {GenericOAuthStatus}", genericOAuthConfigured ? "已配置" : "未配置");
                         _logger.LogInformation("GitHub OAuth配置: {GitHubStatus}", githubConfigured ? "已配置" : "未配置");
                         _logger.LogInformation("Google OAuth配置: {GoogleStatus}", googleConfigured ? "已配置" : "未配置");
                     }
@@ -377,6 +381,32 @@ namespace AudioRecorder.Services
         }
 
         /// <summary>
+        /// 获取通用OAuth服务器配置
+        /// </summary>
+        public Models.OAuthConfig GetGenericOAuthConfig()
+        {
+            if (OAuthSettings?.OauthServer != null && !string.IsNullOrEmpty(OAuthSettings.OauthServer.ServerUrl))
+            {
+                var serverUrl = OAuthSettings.OauthServer.ServerUrl.TrimEnd('/');
+                return new Models.OAuthConfig
+                {
+                    ClientId = OAuthSettings.OauthServer.ClientId,
+                    ClientSecret = OAuthSettings.OauthServer.ClientSecret,
+                    RedirectUri = OAuthSettings.OauthServer.RedirectUri,
+                    AuthorizationEndpoint = serverUrl + "/oauth/authorize",
+                    TokenEndpoint = serverUrl + "/oauth/token",
+                    Scopes = OAuthSettings.OauthServer.Scopes.ToArray(),
+                    ProviderName = "GenericOAuth",
+                    EnablePkce = false,
+                    ResponseType = "code",
+                    AccessType = "offline",
+                    Prompt = "consent"
+                };
+            }
+            return Models.GenericOAuthConfig.Default;
+        }
+
+        /// <summary>
         /// 获取GitHub OAuth配置
         /// </summary>
         public Models.OAuthConfig GetGitHubOAuthConfig()
@@ -388,8 +418,14 @@ namespace AudioRecorder.Services
                     ClientId = OAuthSettings.GitHub.ClientId,
                     ClientSecret = OAuthSettings.GitHub.ClientSecret,
                     RedirectUri = OAuthSettings.GitHub.RedirectUri,
+                    AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+                    TokenEndpoint = "https://github.com/login/oauth/access_token",
                     Scopes = OAuthSettings.GitHub.Scopes.ToArray(),
-                    ProviderName = "GitHub"
+                    ProviderName = "GitHub",
+                    EnablePkce = false,
+                    ResponseType = "code",
+                    AccessType = "offline",
+                    Prompt = "consent"
                 };
             }
             return Models.GitHubOAuthConfig.Default;
@@ -407,8 +443,14 @@ namespace AudioRecorder.Services
                     ClientId = OAuthSettings.Google.ClientId,
                     ClientSecret = OAuthSettings.Google.ClientSecret,
                     RedirectUri = OAuthSettings.Google.RedirectUri,
+                    AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
+                    TokenEndpoint = "https://oauth2.googleapis.com/token",
                     Scopes = OAuthSettings.Google.Scopes.ToArray(),
-                    ProviderName = "Google"
+                    ProviderName = "Google",
+                    EnablePkce = true,
+                    ResponseType = "code",
+                    AccessType = "offline",
+                    Prompt = "consent"
                 };
             }
             return Models.GoogleOAuthConfig.Default;
@@ -423,6 +465,14 @@ namespace AudioRecorder.Services
             {
                 switch (provider.ToLower())
                 {
+                    case "genericoauth":
+                        var genericConfig = GetGenericOAuthConfig();
+                        return !string.IsNullOrEmpty(genericConfig.ClientId) && 
+                               !string.IsNullOrEmpty(genericConfig.ClientSecret) &&
+                               !string.IsNullOrEmpty(genericConfig.AuthorizationEndpoint) &&
+                               !string.IsNullOrEmpty(genericConfig.TokenEndpoint) &&
+                               genericConfig.ClientId != "audio_recorder";
+                    
                     case "github":
                         var githubConfig = GetGitHubOAuthConfig();
                         return !string.IsNullOrEmpty(githubConfig.ClientId) && 
@@ -457,6 +507,11 @@ namespace AudioRecorder.Services
             
             try
             {
+                if (IsOAuthConfigComplete("genericoauth"))
+                {
+                    providers.Add("GenericOAuth");
+                }
+                
                 if (IsOAuthConfigComplete("github"))
                 {
                     providers.Add("GitHub");
@@ -605,6 +660,7 @@ namespace AudioRecorder.Services
     public class OAuthSettings
     {
         public bool EnableAuthentication { get; set; } = false;
+        public OAuthServerConfig OauthServer { get; set; } = new OAuthServerConfig();
         public GitHubOAuthConfig GitHub { get; set; } = new GitHubOAuthConfig();
         public GoogleOAuthConfig Google { get; set; } = new GoogleOAuthConfig();
 
@@ -614,6 +670,13 @@ namespace AudioRecorder.Services
         public List<string> GetAvailableProviders()
         {
             var providers = new List<string>();
+            
+            // 检查通用OAuth服务器配置
+            if (OauthServer != null && !string.IsNullOrEmpty(OauthServer.ServerUrl) && 
+                !string.IsNullOrEmpty(OauthServer.ClientId) && OauthServer.ClientId != "audio_recorder")
+            {
+                providers.Add("GenericOAuth");
+            }
             
             if (GitHub != null && !string.IsNullOrEmpty(GitHub.ClientId) && GitHub.ClientId != "your-github-client-id")
             {
@@ -627,6 +690,18 @@ namespace AudioRecorder.Services
             
             return providers;
         }
+    }
+
+    /// <summary>
+    /// 通用OAuth服务器配置
+    /// </summary>
+    public class OAuthServerConfig
+    {
+        public string ServerUrl { get; set; } = "";
+        public string ClientId { get; set; } = "audio_recorder";
+        public string ClientSecret { get; set; } = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI";
+        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";
+        public List<string> Scopes { get; set; } = new List<string> { "user", "user:email" };
     }
 
     /// <summary>

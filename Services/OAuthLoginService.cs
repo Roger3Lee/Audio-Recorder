@@ -51,6 +51,23 @@ namespace AudioRecorder.Services
 
                 _logger.LogInformation("开始初始化OAuth提供商", "OAuthLoginService");
 
+                // 初始化通用OAuth服务器
+                var genericConfig = _configService.GetGenericOAuthConfig();
+                if (!string.IsNullOrEmpty(genericConfig.ClientId) && 
+                    !string.IsNullOrEmpty(genericConfig.AuthorizationEndpoint) &&
+                    !string.IsNullOrEmpty(genericConfig.TokenEndpoint) &&
+                    genericConfig.ClientId != "audio_recorder")
+                {
+                    var genericAuthManager = new AuthorizationManager(genericConfig);
+                    _authManagers["GenericOAuth"] = genericAuthManager;
+                    _tokenManager.AddAuthorizationManager("GenericOAuth", genericAuthManager);
+                    _logger.LogInformation("通用OAuth服务器提供商初始化成功", "OAuthLoginService");
+                }
+                else
+                {
+                    _logger.LogWarning("通用OAuth服务器配置未设置，跳过初始化", "OAuthLoginService");
+                }
+
                 // 初始化GitHub OAuth
                 var githubConfig = _configService.GetGitHubOAuthConfig();
                 if (!string.IsNullOrEmpty(githubConfig.ClientId) && githubConfig.ClientId != "your-github-client-id")
@@ -209,6 +226,51 @@ namespace AudioRecorder.Services
             {
                 _logger.LogError($"切换OAuth认证状态失败: {ex.Message}", "OAuthLoginService", ex);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// 开始通用OAuth服务器登录
+        /// </summary>
+        public async Task<bool> StartGenericOAuthLoginAsync()
+        {
+            try
+            {
+                if (!IsAuthenticationEnabled())
+                {
+                    _logger.LogWarning("OAuth认证已禁用，无法启动通用OAuth登录", "OAuthLoginService");
+                    LoginFailed?.Invoke(this, "OAuth认证已禁用");
+                    return false;
+                }
+
+                if (_authManagers.ContainsKey("GenericOAuth"))
+                {
+                    _logger.LogInformation("开始通用OAuth服务器登录流程", "OAuthLoginService");
+                    var result = await _authManagers["GenericOAuth"].StartAuthorizationAsync();
+                    
+                    if (result)
+                    {
+                        _logger.LogInformation("通用OAuth服务器登录流程启动成功", "OAuthLoginService");
+                    }
+                    else
+                    {
+                        _logger.LogError("通用OAuth服务器登录流程启动失败", "OAuthLoginService");
+                    }
+                    
+                    return result;
+                }
+                else
+                {
+                    _logger.LogError("通用OAuth服务器提供商未初始化", "OAuthLoginService");
+                    LoginFailed?.Invoke(this, "通用OAuth服务器提供商未初始化");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"启动通用OAuth登录失败: {ex.Message}", "OAuthLoginService", ex);
+                LoginFailed?.Invoke(this, $"启动通用OAuth登录失败: {ex.Message}");
+                return false;
             }
         }
 

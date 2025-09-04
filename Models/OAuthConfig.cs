@@ -54,7 +54,49 @@ namespace AudioRecorder.Models
     }
 
     /// <summary>
-    /// GitHub OAuth配置
+    /// 通用OAuth服务器配置
+    /// </summary>
+    public static class GenericOAuthConfig
+    {
+        public static OAuthConfig Default => new OAuthConfig
+        {
+            ClientId = "audio_recorder",
+            ClientSecret = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI",
+            RedirectUri = "http://localhost:8081/auth/callback",
+            AuthorizationEndpoint = "/oauth/authorize", // 相对于ServerUrl的路径
+            TokenEndpoint = "/oauth/token", // 相对于ServerUrl的路径
+            Scopes = new[] { "user", "user:email" },
+            ProviderName = "GenericOAuth",
+            EnablePkce = false, // 默认不支持PKCE，可根据服务器要求调整
+            ResponseType = "code",
+            AccessType = "offline",
+            Prompt = "consent"
+        };
+
+        /// <summary>
+        /// 创建自定义通用OAuth配置
+        /// </summary>
+        public static OAuthConfig Create(string serverUrl, string clientId, string clientSecret, string redirectUri = "http://localhost:8081/auth/callback")
+        {
+            return new OAuthConfig
+            {
+                ClientId = clientId,
+                ClientSecret = clientSecret,
+                RedirectUri = redirectUri,
+                AuthorizationEndpoint = serverUrl.TrimEnd('/') + "/oauth/authorize",
+                TokenEndpoint = serverUrl.TrimEnd('/') + "/oauth/token",
+                Scopes = new[] { "user", "user:email" },
+                ProviderName = "GenericOAuth",
+                EnablePkce = false,
+                ResponseType = "code",
+                AccessType = "offline",
+                Prompt = "consent"
+            };
+        }
+    }
+
+    /// <summary>
+    /// GitHub OAuth配置（保留兼容性）
     /// </summary>
     public static class GitHubOAuthConfig
     {
