@@ -482,6 +482,8 @@ namespace AudioRecorder
         {
             try
             {
+                _logger?.LogInformation("用户确认停止录音");
+                
                 // 隐藏确认覆盖层
                 HideStopConfirmOverlay();
                 
@@ -490,10 +492,21 @@ namespace AudioRecorder
                 
                 // 上传在后台静默执行，不显示状态
                 // 录音停止后，ExecuteStopRecording会自动调用AutoUploadRecordingFiles
+                
+                // 如果是从关闭按钮触发的，停止录音后关闭应用程序
+                if (isStopConfirming)
+                {
+                    _logger?.LogInformation("录音已停止，现在关闭应用程序");
+                    // 延迟一点时间确保录音完全停止
+                    Dispatcher.BeginInvoke(() => CloseApplication(), 
+                        System.Windows.Threading.DispatcherPriority.Normal);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogInformation($"❌ 停止录音失败: {ex.Message}");
+                _logger?.LogError(ex, "停止录音失败");
+                // 即使停止录音失败，也要关闭应用程序
+                CloseApplication();
             }
         }
 
@@ -583,14 +596,51 @@ namespace AudioRecorder
         // 关闭按钮点击
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // 如果正在录制，先停止录制
-            if (isRecording && recorder != null)
+            try
             {
-                ShowStopConfirmOverlay();
+                _logger?.LogInformation("用户点击关闭按钮");
+                
+                // 如果正在录制，先停止录制
+                if (isRecording && recorder != null)
+                {
+                    _logger?.LogInformation("正在录音，显示停止确认对话框");
+                    ShowStopConfirmOverlay();
+                }
+                else
+                {
+                    _logger?.LogInformation("开始关闭窗口");
+                    CloseApplication();
+                }
             }
-            else
+            catch (Exception ex)
             {
+                _logger?.LogError(ex, "关闭按钮处理失败");
+                // 强制关闭
+                CloseApplication();
+            }
+        }
+        
+        /// <summary>
+        /// 关闭应用程序
+        /// </summary>
+        private void CloseApplication()
+        {
+            try
+            {
+                _logger?.LogInformation("正在关闭应用程序...");
                 this.Close();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "正常关闭失败，强制退出");
+                try
+                {
+                    Application.Current?.Shutdown();
+                }
+                catch
+                {
+                    Environment.Exit(0);
+                }
             }
         }
 
@@ -1140,20 +1190,81 @@ namespace AudioRecorder
 
         protected override void OnClosed(EventArgs e)
         {
-            // 取消订阅URL协议事件
-            UrlProtocolHandler.ProtocolActionReceived -= OnProtocolActionReceived;
-            
-            // 保存窗口位置（如果窗口在屏幕范围内）
-            if (IsWindowInScreenBounds())
+            try
             {
-                SaveWindowPosition();
+                _logger?.LogInformation("🔄 窗口正在关闭，开始清理资源...");
+                
+                // 取消订阅URL协议事件
+                UrlProtocolHandler.ProtocolActionReceived -= OnProtocolActionReceived;
+                
+                // 保存窗口位置（如果窗口在屏幕范围内）
+                if (IsWindowInScreenBounds())
+                {
+                    SaveWindowPosition();
+                }
+                
+                // 停止录音（如果正在录音）
+                if (isRecording && recorder != null)
+                {
+                    _logger?.LogInformation("停止录音...");
+                    recorder.StopRecording();
+                }
+                
+                // 释放WebSocket服务器
+                if (webSocketServer != null)
+                {
+                    _logger?.LogInformation("停止WebSocket服务器...");
+                    webSocketServer.Stop();
+                    webSocketServer.Dispose();
+                    webSocketServer = null;
+                }
+                
+                // 释放上传服务
+                if (uploadService != null)
+                {
+                    _logger?.LogInformation("释放上传服务...");
+                    uploadService.Dispose();
+                    uploadService = null;
+                }
+                
+                // 释放录音器
+                if (recorder != null)
+                {
+                    _logger?.LogInformation("释放录音器...");
+                    recorder.Dispose();
+                    recorder = null;
+                }
+                
+                // 释放OAuth服务
+                if (oauthService != null)
+                {
+                    _logger?.LogInformation("释放OAuth服务...");
+                    oauthService.Dispose();
+                    oauthService = null;
+                }
+                
+                _logger?.LogInformation("✅ 资源清理完成");
+                
+                base.OnClosed(e);
+                
+                // 强制退出应用程序
+                Application.Current?.Shutdown();
             }
-            
-            webSocketServer?.Stop();
-            webSocketServer?.Dispose();
-            uploadService?.Dispose();
-            recorder?.Dispose();
-            base.OnClosed(e);
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "窗口关闭时清理资源失败");
+                
+                // 即使出错也要强制退出
+                try
+                {
+                    Application.Current?.Shutdown();
+                }
+                catch
+                {
+                    // 最后的手段 - 强制终止进程
+                    Environment.Exit(0);
+                }
+            }
         }
 
         /// <summary>

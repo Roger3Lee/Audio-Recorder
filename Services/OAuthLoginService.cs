@@ -55,8 +55,7 @@ namespace AudioRecorder.Services
                 var genericConfig = _configService.GetGenericOAuthConfig();
                 if (!string.IsNullOrEmpty(genericConfig.ClientId) && 
                     !string.IsNullOrEmpty(genericConfig.AuthorizationEndpoint) &&
-                    !string.IsNullOrEmpty(genericConfig.TokenEndpoint) &&
-                    genericConfig.ClientId != "audio_recorder")
+                    !string.IsNullOrEmpty(genericConfig.TokenEndpoint))
                 {
                     var genericAuthManager = new AuthorizationManager(genericConfig);
                     _authManagers["GenericOAuth"] = genericAuthManager;

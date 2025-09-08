@@ -64,70 +64,64 @@
             </Setter>
         </Style>
 
-        <!-- 确认按钮样式 - 带圆角 -->
-        <Style x:Key="ConfirmButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#E74C3C"/>
+
+
+        <!-- 统一对话框按钮样式 -->
+        <Style x:Key="DialogButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontFamily" Value="Microsoft YaHei"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="8"
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#C53030"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#9B2C2C"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
+                        <Grid>
+                            <Border x:Name="ButtonBorder"
+                                    Background="{TemplateBinding Background}" 
+                                    CornerRadius="8"
+                                    UseLayoutRounding="True"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center"
+                                                Margin="12,6"
+                                                UseLayoutRounding="True"
+                                                SnapsToDevicePixels="True"/>
+                            </Border>
+                        </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <!-- 取消按钮样式 - 带圆角 -->
-        <Style x:Key="CancelButtonStyle" TargetType="Button">
+        <!-- 确认按钮样式 -->
+        <Style x:Key="ConfirmButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonStyle}">
+            <Setter Property="Background" Value="#E74C3C"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#C53030"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#9B2C2C"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 取消按钮样式 -->
+        <Style x:Key="CancelButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonStyle}">
             <Setter Property="Background" Value="#95A5A6"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontFamily" Value="Microsoft YaHei"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="8"
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#7F8C8D"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#6C7B7D"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#7F8C8D"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#6C7B7D"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -249,10 +243,11 @@
                       Visibility="Collapsed">
                     <Border Background="White" 
                             CornerRadius="8" 
-                            Padding="20"
+                            Padding="25"
                             HorizontalAlignment="Center" 
                             VerticalAlignment="Center"
-                            MaxWidth="160">
+                            MinWidth="180"
+                            ClipToBounds="False">
                         <StackPanel>
                             <!-- 确认提示文字 -->
                             <TextBlock Text="确定停止录音？" 
@@ -262,23 +257,28 @@
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,20"/>
                             
-                            <!-- 确认按钮 -->
-                            <StackPanel Orientation="Horizontal" 
-                                        HorizontalAlignment="Center" 
-                                        Margin="0,0,0,10">
+                            <!-- 确认按钮容器 -->
+                            <Canvas HorizontalAlignment="Center" 
+                                    Height="35"
+                                    Width="135"
+                                    ClipToBounds="False">
+                                
                                 <Button x:Name="ConfirmStopButton" 
+                                        Canvas.Left="0"
+                                        Canvas.Top="0"
                                         Content="确认" 
                                         Width="60" Height="30"
-                                        Margin="0,0,10,0"
                                         Style="{StaticResource ConfirmButtonStyle}"
                                         Click="ConfirmStopButton_Click"/>
                                 
                                 <Button x:Name="CancelStopButton" 
+                                        Canvas.Left="75"
+                                        Canvas.Top="0"
                                         Content="取消" 
                                         Width="60" Height="30"
                                         Style="{StaticResource CancelButtonStyle}"
                                         Click="CancelStopButton_Click"/>
-                            </StackPanel>
+                            </Canvas>
                         </StackPanel>
                     </Border>
                 </Grid>

@@ -93,6 +93,25 @@ namespace AudioRecorder
 
                 // 启动 WPF 应用程序
                 var app = new System.Windows.Application();
+                
+                // 设置应用程序关闭模式 - 主窗口关闭时退出应用程序
+                app.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                
+                // 添加应用程序退出事件处理
+                app.Exit += (sender, e) =>
+                {
+                    _logger?.LogInformation("应用程序正在退出...");
+                    try
+                    {
+                        // 清理日志服务资源
+                        LoggingServiceManager.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"清理日志服务失败: {ex.Message}");
+                    }
+                };
+                
                 app.Startup += (sender, e) =>
                 {
                     // 创建主窗口
@@ -133,11 +152,23 @@ namespace AudioRecorder
             }
             finally
             {
-                // 清理日志服务资源
-                LoggingServiceManager.Dispose();
-                // 释放互斥锁
-                _mutex?.ReleaseMutex();
-                _mutex?.Dispose();
+                try
+                {
+                    // 清理日志服务资源
+                    LoggingServiceManager.Dispose();
+                    // 释放互斥锁
+                    _mutex?.ReleaseMutex();
+                    _mutex?.Dispose();
+                    
+                    _logger?.LogInformation("应用程序清理完成");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"最终清理失败: {ex.Message}");
+                }
+                
+                // 确保进程完全退出
+                Environment.Exit(0);
             }
         }
 
