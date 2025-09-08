@@ -115,7 +115,8 @@ namespace AudioRecorder.Services
                         _logger.LogInformation("OAuth认证状态: {AuthStatus}", OAuthSettings.EnableAuthentication ? "已启用" : "已禁用");
                         
                         // 记录OAuth提供商配置状态
-                        var genericOAuthConfigured = !string.IsNullOrEmpty(OAuthSettings.OauthServer.ServerUrl) && 
+                        var genericOAuthConfigured = !string.IsNullOrEmpty(OAuthSettings.OauthServer.AuthorizeUrl) && 
+                                                   !string.IsNullOrEmpty(OAuthSettings.OauthServer.TokenUrl) &&
                                                    !string.IsNullOrEmpty(OAuthSettings.OauthServer.ClientId) &&
                                                    OAuthSettings.OauthServer.ClientId != "audio_recorder";
                         var githubConfigured = !string.IsNullOrEmpty(OAuthSettings.GitHub.ClientId) && 
@@ -385,16 +386,17 @@ namespace AudioRecorder.Services
         /// </summary>
         public Models.OAuthConfig GetGenericOAuthConfig()
         {
-            if (OAuthSettings?.OauthServer != null && !string.IsNullOrEmpty(OAuthSettings.OauthServer.ServerUrl))
+            if (OAuthSettings?.OauthServer != null && 
+                !string.IsNullOrEmpty(OAuthSettings.OauthServer.AuthorizeUrl) &&
+                !string.IsNullOrEmpty(OAuthSettings.OauthServer.TokenUrl))
             {
-                var serverUrl = OAuthSettings.OauthServer.ServerUrl.TrimEnd('/');
                 return new Models.OAuthConfig
                 {
                     ClientId = OAuthSettings.OauthServer.ClientId,
                     ClientSecret = OAuthSettings.OauthServer.ClientSecret,
                     RedirectUri = OAuthSettings.OauthServer.RedirectUri,
-                    AuthorizationEndpoint = serverUrl + "/oauth/authorize",
-                    TokenEndpoint = serverUrl + "/oauth/token",
+                    AuthorizationEndpoint = OAuthSettings.OauthServer.AuthorizeUrl,
+                    TokenEndpoint = OAuthSettings.OauthServer.TokenUrl,
                     Scopes = OAuthSettings.OauthServer.Scopes.ToArray(),
                     ProviderName = "GenericOAuth",
                     EnablePkce = false,
@@ -672,7 +674,9 @@ namespace AudioRecorder.Services
             var providers = new List<string>();
             
             // 检查通用OAuth服务器配置
-            if (OauthServer != null && !string.IsNullOrEmpty(OauthServer.ServerUrl) && 
+            if (OauthServer != null && 
+                !string.IsNullOrEmpty(OauthServer.AuthorizeUrl) && 
+                !string.IsNullOrEmpty(OauthServer.TokenUrl) &&
                 !string.IsNullOrEmpty(OauthServer.ClientId) && OauthServer.ClientId != "audio_recorder")
             {
                 providers.Add("GenericOAuth");
@@ -697,7 +701,8 @@ namespace AudioRecorder.Services
     /// </summary>
     public class OAuthServerConfig
     {
-        public string ServerUrl { get; set; } = "";
+        public string AuthorizeUrl { get; set; } = "";
+        public string TokenUrl { get; set; } = "";
         public string ClientId { get; set; } = "audio_recorder";
         public string ClientSecret { get; set; } = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI";
         public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";

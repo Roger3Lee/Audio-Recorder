@@ -4,12 +4,14 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Interop;
 using AudioRecorder.Services;
 using AudioRecorder.Models;
 using WpfMessageBox = System.Windows.MessageBox;
 using WpfPoint = System.Windows.Point;
 using System.Threading.Tasks; // Added for Task.Run
 using Microsoft.Extensions.Logging;
+using System.Drawing; // Added for Graphics.FromHwnd
 
 namespace AudioRecorder
 {
@@ -56,8 +58,8 @@ namespace AudioRecorder
             this.ShowInTaskbar = true;
             this.Visibility = System.Windows.Visibility.Visible;
             
-            // 设置窗口位置（默认在桌面右中部分，或恢复上次位置）
-            SetWindowPosition();
+            // 延迟设置窗口位置，确保窗口完全初始化后再设置
+            this.Loaded += (s, e) => SetWindowPosition();
             
             // 初始化组件
             InitializeRecorder();
@@ -84,6 +86,15 @@ namespace AudioRecorder
             
             // 设置拖拽
             this.MouseLeftButtonDown += (s, e) => this.DragMove();
+            
+            // 添加DPI测试快捷键 (Ctrl+D)
+            this.KeyDown += (s, e) => 
+            {
+                if (e.Key == Key.D && Keyboard.Modifiers == ModifierKeys.Control)
+                {
+                    TestDpiDetection();
+                }
+            };
         }
 
         private void InitializeRecorder()
@@ -688,19 +699,29 @@ namespace AudioRecorder
                 var config = ConfigurationService.Instance;
                 var savedPosition = config.GetWindowPosition();
                 
-                //if (savedPosition != null)
-                //{
-                //    // 恢复上次位置
-                //    this.Left = savedPosition.X;
-                //    this.Top = savedPosition.Y;
-                //    _logger.LogInformation($"🔄 恢复窗口位置: ({this.Left}, {this.Top})");
-                //}
-                //else
-                //{
+                if (savedPosition != null)
+                {
+                    // 恢复上次位置，但需要验证是否在当前屏幕范围内
+                    this.Left = savedPosition.X;
+                    this.Top = savedPosition.Y;
+                    
+                    // 验证并调整窗口位置，确保在屏幕范围内
+                    if (ValidateAndAdjustWindowPosition())
+                    {
+                        _logger.LogInformation($"🔄 恢复窗口位置: ({this.Left}, {this.Top})");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"📍 窗口位置超出屏幕范围，使用默认位置");
+                        SetDefaultWindowPosition();
+                    }
+                }
+                else
+                {
                     // 设置默认位置：桌面右中部分
                     SetDefaultWindowPosition();
                     _logger.LogInformation($"📍 设置默认窗口位置: ({this.Left}, {this.Top})");
-                //}
+                }
             }
             catch (Exception ex)
             {
@@ -717,32 +738,43 @@ namespace AudioRecorder
         {
             try
             {
-                // 获取主屏幕的工作区域
-                var screen = System.Windows.Forms.Screen.PrimaryScreen;
+                // 获取当前鼠标所在屏幕或主屏幕的工作区域
+                var screen = GetCurrentScreen() ?? System.Windows.Forms.Screen.PrimaryScreen;
                 if (screen != null)
                 {
-                    _logger.LogInformation($"⚠️ 设置主屏幕的工作区域");
+                    _logger.LogInformation($"📺 使用屏幕工作区域: {screen.WorkingArea}");
                     var workingArea = screen.WorkingArea;
                     
-                    // 计算右中位置（考虑窗口尺寸）
+                    // 计算右中位置（考虑窗口尺寸和DPI缩放）
                     var windowWidth = this.Width > 0 ? this.Width : Modal2Size.Width;
                     var windowHeight = this.Height > 0 ? this.Height : Modal2Size.Height;
                     
-                    this.Left = workingArea.Right - windowWidth - 20; // 距离右边缘20像素
-                    this.Top = workingArea.Top + (workingArea.Height - windowHeight) / 2; // 垂直居中
+                    // 转换为设备无关像素
+                    var dpiScale = GetDpiScale();
+                    var scaledWidth = windowWidth * dpiScale;
+                    var scaledHeight = windowHeight * dpiScale;
+                    
+                    this.Left = (workingArea.Right - scaledWidth - 20) / dpiScale; // 距离右边缘20像素
+                    this.Top = (workingArea.Top + (workingArea.Height - scaledHeight) / 2) / dpiScale; // 垂直居中
+                    
+                    _logger.LogInformation($"📍 计算位置: DPI缩放={dpiScale:F2}, 窗口尺寸=({windowWidth}x{windowHeight}), 位置=({this.Left:F0},{this.Top:F0})");
                 }
                 else
                 {
-                    _logger.LogInformation($"⚠️ 使用固定位置");
-                    // 如果无法获取屏幕信息，使用固定位置
-                    this.Left = System.Windows.SystemParameters.WorkArea.Width - 220; // 距离右边缘220像素
-                    this.Top = System.Windows.SystemParameters.WorkArea.Height / 2 - 100; // 垂直居中
+                    _logger.LogInformation($"⚠️ 使用系统参数位置");
+                    // 如果无法获取屏幕信息，使用系统参数
+                    var workArea = System.Windows.SystemParameters.WorkArea;
+                    this.Left = workArea.Width - 220; // 距离右边缘220像素
+                    this.Top = workArea.Height / 2 - 100; // 垂直居中
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"⚠️ 设置默认窗口位置失败: {ex.Message}");
                 // 使用系统默认位置
+                this.WindowStartupLocation = WindowStartupLocation.Manual;
+                this.Left = 100;
+                this.Top = 100;
             }
         }
 
@@ -776,30 +808,220 @@ namespace AudioRecorder
         {
             try
             {
-                // 获取主屏幕的工作区域
-                var screen = System.Windows.Forms.Screen.PrimaryScreen;
+                // 获取当前窗口所在的屏幕
+                var screen = GetScreenFromWindow() ?? System.Windows.Forms.Screen.PrimaryScreen;
                 if (screen != null)
                 {
                     var workingArea = screen.WorkingArea;
+                    var dpiScale = GetDpiScale();
                     
-                    // 检查窗口是否完全在屏幕范围内
-                    return this.Left >= workingArea.Left && 
-                           this.Top >= workingArea.Top && 
-                           this.Left + this.Width <= workingArea.Right && 
-                           this.Top + this.Height <= workingArea.Bottom;
+                    // 转换窗口坐标到屏幕坐标
+                    var windowLeft = this.Left * dpiScale;
+                    var windowTop = this.Top * dpiScale;
+                    var windowRight = windowLeft + (this.Width * dpiScale);
+                    var windowBottom = windowTop + (this.Height * dpiScale);
+                    
+                    // 检查窗口是否至少有一部分在屏幕范围内（允许部分超出）
+                    bool isVisible = windowRight > workingArea.Left && 
+                                   windowLeft < workingArea.Right && 
+                                   windowBottom > workingArea.Top && 
+                                   windowTop < workingArea.Bottom;
+                    
+                    _logger.LogInformation($"🔍 窗口边界检查: 窗口=({windowLeft:F0},{windowTop:F0},{windowRight:F0},{windowBottom:F0}), 屏幕={workingArea}, 可见={isVisible}");
+                    return isVisible;
                 }
                 
                 // 如果无法获取屏幕信息，使用系统参数
                 var systemWorkingArea = System.Windows.SystemParameters.WorkArea;
-                return this.Left >= 0 && 
-                       this.Top >= 0 && 
-                       this.Left + this.Width <= systemWorkingArea.Width && 
-                       this.Top + this.Height <= systemWorkingArea.Height;
+                return this.Left >= -this.Width/2 && 
+                       this.Top >= -this.Height/2 && 
+                       this.Left <= systemWorkingArea.Width && 
+                       this.Top <= systemWorkingArea.Height;
             }
             catch (Exception ex)
             {
                 _logger.LogInformation($"⚠️ 检查窗口边界失败: {ex.Message}");
                 return false; // 如果出错，不保存位置
+            }
+        }
+
+        /// <summary>
+        /// 验证并调整窗口位置，确保窗口在屏幕范围内
+        /// </summary>
+        private bool ValidateAndAdjustWindowPosition()
+        {
+            try
+            {
+                var screen = GetScreenFromWindow() ?? System.Windows.Forms.Screen.PrimaryScreen;
+                if (screen == null) return false;
+                
+                var workingArea = screen.WorkingArea;
+                var dpiScale = GetDpiScale();
+                
+                // 转换到屏幕坐标
+                var windowLeft = this.Left * dpiScale;
+                var windowTop = this.Top * dpiScale;
+                var windowWidth = this.Width * dpiScale;
+                var windowHeight = this.Height * dpiScale;
+                
+                bool adjusted = false;
+                
+                // 调整水平位置
+                if (windowLeft + windowWidth < workingArea.Left + 50) // 窗口几乎完全在左边界外
+                {
+                    windowLeft = workingArea.Left;
+                    adjusted = true;
+                }
+                else if (windowLeft > workingArea.Right - 50) // 窗口几乎完全在右边界外
+                {
+                    windowLeft = workingArea.Right - windowWidth;
+                    adjusted = true;
+                }
+                
+                // 调整垂直位置
+                if (windowTop + windowHeight < workingArea.Top + 50) // 窗口几乎完全在上边界外
+                {
+                    windowTop = workingArea.Top;
+                    adjusted = true;
+                }
+                else if (windowTop > workingArea.Bottom - 50) // 窗口几乎完全在下边界外
+                {
+                    windowTop = workingArea.Bottom - windowHeight;
+                    adjusted = true;
+                }
+                
+                if (adjusted)
+                {
+                    // 转换回WPF坐标
+                    this.Left = windowLeft / dpiScale;
+                    this.Top = windowTop / dpiScale;
+                    _logger.LogInformation($"🔧 调整窗口位置: ({this.Left:F0}, {this.Top:F0})");
+                }
+                
+                return !adjusted; // 如果没有调整，说明原位置有效
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"⚠️ 验证窗口位置失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取当前DPI缩放比例
+        /// </summary>
+        private double GetDpiScale()
+        {
+            try
+            {
+                // 方法1: 尝试从当前窗口获取DPI
+                var source = PresentationSource.FromVisual(this);
+                if (source?.CompositionTarget != null)
+                {
+                    var dpiScale = source.CompositionTarget.TransformToDevice.M11;
+                    if (dpiScale > 0.1) // 确保获取到有效值
+                    {
+                        _logger.LogInformation($"🔍 方法1获取DPI缩放: {dpiScale:F2} ({dpiScale * 100:F0}%)");
+                        return dpiScale;
+                    }
+                }
+
+                // 方法2: 使用系统DPI API (Windows 10+)
+                var hwnd = new WindowInteropHelper(this).Handle;
+                if (hwnd != IntPtr.Zero)
+                {
+                    var dpi = GetDpiForWindow(hwnd);
+                    if (dpi > 0)
+                    {
+                        var dpiScale = dpi / 96.0; // 96 DPI = 100% 缩放
+                        _logger.LogInformation($"🔍 方法2获取DPI缩放: {dpiScale:F2} ({dpiScale * 100:F0}%), 原始DPI: {dpi}");
+                        return dpiScale;
+                    }
+                }
+
+                // 方法3: 使用系统参数获取主屏幕DPI
+                using (var graphics = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
+                {
+                    var dpiX = graphics.DpiX;
+                    if (dpiX > 0)
+                    {
+                        var dpiScale = dpiX / 96.0;
+                        _logger.LogInformation($"🔍 方法3获取DPI缩放: {dpiScale:F2} ({dpiScale * 100:F0}%), 原始DPI: {dpiX}");
+                        return dpiScale;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"获取DPI缩放失败: {ex.Message}");
+            }
+            
+            // 默认返回1.0（100%缩放）
+            _logger.LogWarning($"⚠️ 使用默认DPI缩放: 1.0 (100%)");
+            return 1.0;
+        }
+
+        // Windows API 声明
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hwnd);
+
+        /// <summary>
+        /// 测试DPI检测功能 (快捷键: Ctrl+D)
+        /// </summary>
+        private void TestDpiDetection()
+        {
+            try
+            {
+                var dpiScale = GetDpiScale();
+                var message = $"当前DPI缩放: {dpiScale:F2} ({dpiScale * 100:F0}%)\n" +
+                             $"窗口位置: ({this.Left:F0}, {this.Top:F0})\n" +
+                             $"窗口尺寸: {this.Width:F0} x {this.Height:F0}";
+                
+                _logger.LogInformation($"🧪 DPI测试结果: {message.Replace('\n', ' ')}");
+                WpfMessageBox.Show(message, "DPI检测测试", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"DPI测试失败: {ex.Message}");
+                WpfMessageBox.Show($"DPI测试失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 获取当前屏幕（基于鼠标位置）
+        /// </summary>
+        private System.Windows.Forms.Screen? GetCurrentScreen()
+        {
+            try
+            {
+                var mousePosition = System.Windows.Forms.Control.MousePosition;
+                return System.Windows.Forms.Screen.FromPoint(mousePosition);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"获取当前屏幕失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 获取窗口所在的屏幕
+        /// </summary>
+        private System.Windows.Forms.Screen? GetScreenFromWindow()
+        {
+            try
+            {
+                var dpiScale = GetDpiScale();
+                var screenPoint = new System.Drawing.Point(
+                    (int)(this.Left * dpiScale + this.Width * dpiScale / 2),
+                    (int)(this.Top * dpiScale + this.Height * dpiScale / 2)
+                );
+                return System.Windows.Forms.Screen.FromPoint(screenPoint);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"获取窗口屏幕失败: {ex.Message}");
+                return null;
             }
         }
 
