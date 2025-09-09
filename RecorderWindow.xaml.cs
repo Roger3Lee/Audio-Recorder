@@ -347,8 +347,8 @@ namespace AudioRecorder
             StopIcon1.Source = null;
             StopIcon2.Source = null;
             ExpandIcon.Source = null;
-            MinimizeIcon.Source = null;
-            CloseIcon.Source = null;
+            SharedMinimizeIcon.Source = null;
+            SharedCloseIcon.Source = null;
         }
 
         // 显示模态一（小窗口）
@@ -360,6 +360,10 @@ namespace AudioRecorder
             
             Modal1Grid.Visibility = Visibility.Visible;
             Modal2Grid.Visibility = Visibility.Collapsed;
+            Modal3Grid.Visibility = Visibility.Collapsed;
+            
+            // 隐藏共用标题栏（模态1不需要）
+            SharedTitleBar.Visibility = Visibility.Collapsed;
             
             UpdateUI();
         }
@@ -373,6 +377,10 @@ namespace AudioRecorder
             
             Modal1Grid.Visibility = Visibility.Collapsed;
             Modal2Grid.Visibility = Visibility.Visible;
+            Modal3Grid.Visibility = Visibility.Collapsed;
+            
+            // 显示共用标题栏
+            SharedTitleBar.Visibility = Visibility.Visible;
             
             UpdateUI();
         }
@@ -387,6 +395,9 @@ namespace AudioRecorder
             Modal1Grid.Visibility = Visibility.Collapsed;
             Modal2Grid.Visibility = Visibility.Collapsed;
             Modal3Grid.Visibility = Visibility.Visible;
+            
+            // 显示共用标题栏
+            SharedTitleBar.Visibility = Visibility.Visible;
             
             UpdateUI();
         }
@@ -577,8 +588,10 @@ namespace AudioRecorder
             // 模态二按钮
             RecordButton2.IsEnabled = !disable;
             StopButton2.IsEnabled = !disable;
-            MinimizeButton.IsEnabled = !disable;
-            CloseButton.IsEnabled = !disable;
+            
+            // 共用标题栏按钮
+            SharedMinimizeButton.IsEnabled = !disable;
+            SharedCloseButton.IsEnabled = !disable;
         }
 
         // 展开按钮点击

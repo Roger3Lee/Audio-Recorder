@@ -146,18 +146,70 @@ namespace AudioRecorder
                     // 触发事件，通知主窗口恢复录音
                     ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "resume" });
                 }
-            }
-            else if (parameters.Contains("show"))
-            {
-                _logger.LogInformation("收到显示窗口命令");
-                // 触发事件，通知主窗口显示
-                ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "show" });
+                else if (parameters.Contains("action=detect"))
+                {
+                    _logger.LogInformation("收到检测安装状态命令");
+                    // 检测命令：只记录日志，不启动主窗口
+                    // 这个调用本身就证明程序已安装
+                    WriteDetectionResponse();
+                    return; // 不触发主窗口显示
+                }
             }
             else
             {
                 _logger.LogInformation("收到未知命令，默认显示窗口");
                 // 触发事件，通知主窗口显示
                 ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "show" });
+            }
+        }
+
+        /// <summary>
+        /// 写入检测响应文件
+        /// </summary>
+        private static void WriteDetectionResponse()
+        {
+            try
+            {
+                // 在临时目录创建一个检测响应文件
+                string tempPath = Path.GetTempPath();
+                string responseFile = Path.Combine(tempPath, "audiorecorder_detection.json");
+                
+                var response = new
+                {
+                    installed = true,
+                    timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    version = GetApplicationVersion(),
+                    processId = Process.GetCurrentProcess().Id
+                };
+                
+                string jsonResponse = System.Text.Json.JsonSerializer.Serialize(response, new System.Text.Json.JsonSerializerOptions 
+                { 
+                    WriteIndented = true 
+                });
+                
+                File.WriteAllText(responseFile, jsonResponse);
+                _logger.LogInformation($"检测响应已写入: {responseFile}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"写入检测响应失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取应用程序版本
+        /// </summary>
+        private static string GetApplicationVersion()
+        {
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                var version = assembly.GetName().Version;
+                return version?.ToString() ?? "1.0.0.0";
+            }
+            catch
+            {
+                return "1.0.0.0";
             }
         }
 

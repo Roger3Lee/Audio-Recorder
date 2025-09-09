@@ -129,6 +129,32 @@
     <Border x:Name="MainBorder" CornerRadius="8" Background="White" BorderThickness="1" BorderBrush="#E0E0E0">
         <!-- 使用单一Grid容器包含三个模态 -->
         <Grid>
+            <!-- 共用标题栏 - 用于模态2和模态3 -->
+            <StackPanel x:Name="SharedTitleBar"
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right" 
+                        VerticalAlignment="Top"
+                        Height="30"
+                        Margin="0,2,5,0"
+                        Visibility="Collapsed">
+                <!-- 最小化按钮 -->
+                <Button x:Name="SharedMinimizeButton" 
+                        Style="{StaticResource IconButtonStyle}"
+                        Width="25" Height="25"
+                        Margin="2"
+                        Click="MinimizeButton_Click">
+                    <Image x:Name="SharedMinimizeIcon" Width="25" Height="25" />
+                </Button>
+                
+                <!-- 关闭按钮 -->
+                <Button x:Name="SharedCloseButton" 
+                        Style="{StaticResource IconButtonStyle}"
+                        Width="25" Height="25"
+                        Margin="2"
+                        Click="CloseButton_Click">
+                    <Image x:Name="SharedCloseIcon" Width="25" Height="25" />
+                </Button>
+            </StackPanel>
             <!-- 模态一：小窗口布局 (200x50px) - 录音状态 -->
             <Grid x:Name="Modal1Grid" Visibility="Visible">
                 <!-- 使用StackPanel水平布局，完全模拟HTML的flex布局 -->
@@ -179,30 +205,6 @@
 
             <!-- 模态二：大窗口布局 (200x200px) - 录音控制状态 -->
             <Grid x:Name="Modal2Grid" Visibility="Collapsed">
-                <!-- 标题栏 - height: 30px -->
-                <StackPanel Orientation="Horizontal" 
-                            HorizontalAlignment="Right" 
-                            VerticalAlignment="Top"
-                            Height="30"
-                            Margin="0,2,5,0">
-                    <!-- 最小化按钮 - 28x28，margin 0，gap 0 -->
-                    <Button x:Name="MinimizeButton" 
-                            Style="{StaticResource IconButtonStyle}"
-                            Width="35" Height="35"
-                            Margin="2"
-                            Click="MinimizeButton_Click">
-                        <Image x:Name="MinimizeIcon" Width="25" Height="25" />
-                    </Button>
-                    
-                    <!-- 关闭按钮 - 28x28，margin 0 -->
-                    <Button x:Name="CloseButton" 
-                            Style="{StaticResource IconButtonStyle}"
-                            Width="35" Height="35"
-                            Margin="2"
-                            Click="CloseButton_Click">
-                        <Image x:Name="CloseIcon" Width="25" Height="25" />
-                    </Button>
-                </StackPanel>
                 
                 <!-- 状态标签 - font-size: 12px, margin: 20px 0 -->
                 <TextBlock x:Name="StatusLabel2" 
@@ -286,30 +288,6 @@
 
             <!-- 模态三：登录状态布局 (200x150px) - 只显示登录相关UI -->
             <Grid x:Name="Modal3Grid" Visibility="Collapsed">
-                <!-- 标题栏 - height: 30px -->
-                <StackPanel Orientation="Horizontal" 
-                            HorizontalAlignment="Right" 
-                            VerticalAlignment="Top"
-                            Height="30"
-                            Margin="0,2,5,0">
-                    <!-- 最小化按钮 -->
-                    <Button x:Name="MinimizeButton3" 
-                            Style="{StaticResource IconButtonStyle}"
-                            Width="35" Height="35"
-                            Margin="2"
-                            Click="MinimizeButton_Click">
-                        <Image x:Name="MinimizeIcon3" Width="25" Height="25" />
-                    </Button>
-                    
-                    <!-- 关闭按钮 -->
-                    <Button x:Name="CloseButton3" 
-                            Style="{StaticResource IconButtonStyle}"
-                            Width="35" Height="35"
-                            Margin="2"
-                            Click="CloseButton_Click">
-                        <Image x:Name="CloseIcon3" Width="25" Height="25" />
-                    </Button>
-                </StackPanel>
 
                 <!-- 登录状态显示 - 居中 -->
                 <StackPanel x:Name="LoginStatusPanel" 

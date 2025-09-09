@@ -184,11 +184,13 @@ namespace AudioRecorder
             SetIconToImage(window.StopIcon1, "stop", 24, 24);
             SetIconToImage(window.ExpandIcon, "expand", 24, 24);
             
-            // 模态二图标 (40x40 for main buttons, 20x20 for title bar)
+            // 模态二图标 (40x40 for main buttons)
             SetIconToImage(window.RecordIcon2, "start_record", 40, 40);
             SetIconToImage(window.StopIcon2, "stop", 40, 40);
-            SetIconToImage(window.MinimizeIcon, "minimize", 20, 20);
-            SetIconToImage(window.CloseIcon, "close", 20, 20);
+            
+            // 共用标题栏图标 (20x20，按钮25x25，留出边距)
+            SetIconToImage(window.SharedMinimizeIcon, "minimize", 20, 20);
+            SetIconToImage(window.SharedCloseIcon, "close", 20, 20);
         }
 
         /// <summary>

@@ -74,10 +74,10 @@ namespace AudioRecorder
                 }
                 
                 // 注册URL协议（如果还没有注册）
-                if (!UrlProtocolHandler.IsProtocolRegistered())
-                {
-                    UrlProtocolHandler.RegisterProtocol();
-                }
+                //if (!UrlProtocolHandler.IsProtocolRegistered())
+                //{
+                //    UrlProtocolHandler.RegisterProtocol();
+                //}
 
                 // 处理URL协议调用
                 if (args.Length > 0 && !string.IsNullOrEmpty(args[0]))
