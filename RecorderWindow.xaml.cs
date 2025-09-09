@@ -20,6 +20,7 @@ namespace AudioRecorder
         private SimpleAudioRecorder? recorder;
         private SimpleWebSocketServer? webSocketServer;
         private AudioFileUploadService? uploadService;
+        private IPCManager? ipcManager;
         
         // OAuth相关字段
         private OAuthLoginService? oauthService;
@@ -65,6 +66,7 @@ namespace AudioRecorder
             InitializeRecorder();
             InitializeOAuth();
             InitializeWebSocket();
+            InitializeIPC();
             LoadIcons();
             
             // 根据OAuth认证状态和登录状态决定初始显示
@@ -319,6 +321,29 @@ namespace AudioRecorder
             catch (Exception ex)
             {
                 WpfMessageBox.Show($"WebSocket服务器启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void InitializeIPC()
+        {
+            try
+            {
+                _logger.LogInformation("初始化IPC服务器");
+                
+                // 创建IPC管理器
+                ipcManager = new IPCManager();
+                
+                // 订阅命令接收事件
+                ipcManager.CommandReceived += OnIPCCommandReceived;
+                
+                // 启动IPC服务器
+                ipcManager.StartServer();
+                
+                _logger.LogInformation("IPC服务器启动成功");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"IPC服务器启动失败: {ex.Message}");
             }
         }
 
@@ -1256,6 +1281,14 @@ namespace AudioRecorder
                     oauthService = null;
                 }
                 
+                // 释放IPC服务器
+                if (ipcManager != null)
+                {
+                    _logger?.LogInformation("停止IPC服务器...");
+                    ipcManager.Dispose();
+                    ipcManager = null;
+                }
+                
                 _logger?.LogInformation("✅ 资源清理完成");
                 
                 base.OnClosed(e);
@@ -1288,56 +1321,116 @@ namespace AudioRecorder
             try
             {
                 _logger.LogInformation($"收到URL协议命令: {e.Action}");
-                
-                // 确保在UI线程中执行
-                this.Dispatcher.BeginInvoke(() =>
-                {
-                    try
-                    {
-                        // 首先确保窗口可见和激活
-                        this.Show();
-                        this.Activate();
-                        this.WindowState = System.Windows.WindowState.Normal;
-                        this.Topmost = true;
-                        
-                        switch (e.Action.ToLower())
-                        {
-                            case "start":
-                                if (recorder != null)
-                                    recorder.StartRecording();
-                                break;
-                            case "stop":
-                                if (recorder != null)
-                                    recorder.StopRecording();
-                                break;
-                            case "pause":
-                                if (recorder != null)
-                                    recorder.PauseRecording();
-                                break;
-                            case "resume":
-                                if (recorder != null)
-                                    recorder.ResumeRecording();
-                                break;
-                            case "show":
-                                // 窗口已经显示和激活
-                                break;
-                            default:
-                                _logger.LogWarning($"未知的URL协议命令: {e.Action}");
-                                break;
-                        }
-                        
-                        _logger.LogInformation($"URL协议命令 '{e.Action}' 执行完成");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"执行URL协议命令失败: {ex.Message}");
-                    }
-                }, System.Windows.Threading.DispatcherPriority.Normal);
+                ExecuteCommand(e.Action);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"处理URL协议命令失败: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 处理IPC命令事件
+        /// </summary>
+        private void OnIPCCommandReceived(object? sender, IPCCommandEventArgs e)
+        {
+            try
+            {
+                _logger.LogInformation($"收到IPC命令: {e.Command.Action}");
+                ExecuteCommand(e.Command.Action);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"处理IPC命令失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 执行命令（统一的命令处理逻辑）
+        /// </summary>
+        /// <param name="action">要执行的动作</param>
+        private void ExecuteCommand(string action)
+        {
+            // 确保在UI线程中执行
+            this.Dispatcher.BeginInvoke(() =>
+            {
+                try
+                {
+                    string actionLower = action.ToLower();
+                    
+                    // 根据不同的action决定是否显示界面
+                    bool shouldShowWindow = actionLower == "show" || actionLower == "start" || 
+                                          actionLower == "stop" || actionLower == "pause" || actionLower == "resume";
+                    
+                    if (shouldShowWindow)
+                    {
+                        // 确保窗口可见和激活
+                        this.Show();
+                        this.Activate();
+                        this.WindowState = System.Windows.WindowState.Normal;
+                        this.Topmost = true;
+                        _logger.LogInformation($"窗口已显示，执行命令: {actionLower}");
+                    }
+                    
+                    switch (actionLower)
+                    {
+                        case "start":
+                            if (recorder != null && !isRecording)
+                            {
+                                recorder.StartRecording();
+                                isRecording = true;
+                                isPaused = false;
+                                UpdateUI();
+                                NotifyWebSocketClients("recording_started", new { IsRecording = true });
+                                _logger.LogInformation("开始录音");
+                            }
+                            break;
+                        case "stop":
+                            if (recorder != null && (isRecording || isPaused))
+                            {
+                                recorder.StopRecording();
+                                isRecording = false;
+                                isPaused = false;
+                                UpdateUI();
+                                NotifyWebSocketClients("recording_stopped", new { IsRecording = false });
+                                _logger.LogInformation("停止录音");
+                            }
+                            break;
+                        case "pause":
+                            if (recorder != null && isRecording && !isPaused)
+                            {
+                                recorder.PauseRecording();
+                                isPaused = true;
+                                UpdateUI();
+                                NotifyWebSocketClients("recording_paused", new { IsRecording = true, IsPaused = true });
+                                _logger.LogInformation("暂停录音");
+                            }
+                            break;
+                        case "resume":
+                            if (recorder != null && isPaused)
+                            {
+                                recorder.ResumeRecording();
+                                isPaused = false;
+                                UpdateUI();
+                                NotifyWebSocketClients("recording_resumed", new { IsRecording = true, IsPaused = false });
+                                _logger.LogInformation("恢复录音");
+                            }
+                            break;
+                        case "show":
+                            _logger.LogInformation("显示窗口");
+                            break;
+                        default:
+                            _logger.LogWarning($"未知的命令: {action}");
+                            break;
+                    }
+                    
+                    _logger.LogInformation($"命令 '{action}' 执行完成");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"执行命令失败: {ex.Message}");
+                }
+            }, System.Windows.Threading.DispatcherPriority.Normal);
         }
     }
 }

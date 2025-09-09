@@ -1,8 +1,10 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 using AudioRecorder.Services;
 using Microsoft.Extensions.Logging;
 
@@ -38,6 +40,18 @@ namespace AudioRecorder
                         UninstallCleanupService.PerformUninstallCleanup();
                         return;
                     }
+                    
+                    // 检查是否是检测命令 - 在互斥锁检查之前处理
+                    if (arg.StartsWith("audiorecorder://") && arg.Contains("action=detect"))
+                    {
+                        // 初始化最小日志服务
+                        _logger = LoggingServiceManager.CreateLogger("Program");
+                        _logger.LogInformation($"处理检测命令: {arg}");
+                        
+                        // 直接处理检测命令
+                        UrlProtocolHandler.HandleProtocolUrl(arg);
+                        return; // 处理完检测后直接退出，不占用互斥锁
+                    }
                 }
 
                 // 尝试获取互斥锁
@@ -46,6 +60,37 @@ namespace AudioRecorder
                 if (!_isFirstInstance)
                 {
                     // 已有实例在运行
+                    _logger = LoggingServiceManager.CreateLogger("Program");
+                    _logger.LogInformation("检测到现有实例正在运行");
+                    
+                    // 如果有URL协议调用，尝试发送给现有实例
+                    if (args.Length > 0 && !string.IsNullOrEmpty(args[0]))
+                    {
+                        string url = args[0];
+                        if (url.StartsWith("audiorecorder://"))
+                        {
+                            _logger.LogInformation($"尝试将协议调用发送给现有实例: {url}");
+                            
+                            // 解析URL协议并创建IPC命令
+                            var command = ParseUrlToIPCCommand(url);
+                            if (command != null)
+                            {
+                                // 使用ConfigureAwait(false)避免死锁
+                                bool sent = IPCManager.SendCommandToExistingInstance(command).ConfigureAwait(false).GetAwaiter().GetResult();
+                                if (sent)
+                                {
+                                    _logger.LogInformation("命令已成功发送给现有实例");
+                                    return;
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("发送命令给现有实例失败，尝试激活现有实例");
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果没有协议调用或发送失败，激活现有实例
                     MessageBox.Show(
                         "AudioRecorder 已经在运行中！\n\n请检查系统托盘或任务栏。",
                         "AudioRecorder - 实例已运行",
@@ -169,6 +214,54 @@ namespace AudioRecorder
                 
                 // 确保进程完全退出
                 Environment.Exit(0);
+            }
+        }
+
+        /// <summary>
+        /// 解析URL协议为IPC命令
+        /// </summary>
+        /// <param name="url">URL协议字符串</param>
+        /// <returns>IPC命令对象</returns>
+        private static IPCCommand ParseUrlToIPCCommand(string url)
+        {
+            try
+            {
+                if (!url.StartsWith("audiorecorder://"))
+                    return null;
+
+                string parameters = url.Substring("audiorecorder://".Length);
+                parameters = parameters.Replace("/", "");
+
+                // 默认action为show
+                string action = "show";
+                var paramDict = new Dictionary<string, object>();
+
+                if (parameters.Contains("action="))
+                {
+                    // 解析action参数
+                    if (parameters.Contains("action=start"))
+                        action = "start";
+                    else if (parameters.Contains("action=stop"))
+                        action = "stop";
+                    else if (parameters.Contains("action=pause"))
+                        action = "pause";
+                    else if (parameters.Contains("action=resume"))
+                        action = "resume";
+                    else if (parameters.Contains("action=show"))
+                        action = "show";
+                }
+
+                return new IPCCommand
+                {
+                    Action = action,
+                    Timestamp = DateTime.Now,
+                    Parameters = paramDict
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError($"解析URL协议失败: {ex.Message}");
+                return null;
             }
         }
 

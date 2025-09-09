@@ -149,10 +149,16 @@ namespace AudioRecorder
                 else if (parameters.Contains("action=detect"))
                 {
                     _logger.LogInformation("收到检测安装状态命令");
-                    // 检测命令：只记录日志，不启动主窗口
+                    // 检测命令：只记录日志，不启动主窗口，不占用互斥锁
                     // 这个调用本身就证明程序已安装
                     WriteDetectionResponse();
                     return; // 不触发主窗口显示
+                }
+                else if (parameters.Contains("action=show"))
+                {
+                    _logger.LogInformation("收到显示窗口命令");
+                    // 触发事件，通知主窗口显示
+                    ProtocolActionReceived?.Invoke(null, new ProtocolActionEventArgs { Action = "show" });
                 }
             }
             else
