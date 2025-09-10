@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using AudioRecorder.Models;
 using AudioRecorder.Services;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -15,7 +16,7 @@ namespace AudioRecorder.Services
         private readonly Dictionary<string, AuthorizationManager> _authManagers;
         private readonly TokenManager _tokenManager;
         private readonly ConfigurationService _configService;
-        private readonly LoggingService _logger;
+        private readonly ILogger _logger;
 
         public event EventHandler<TokenInfo>? LoginCompleted;
         public event EventHandler<string>? LoginFailed;
@@ -27,12 +28,12 @@ namespace AudioRecorder.Services
             _authManagers = new Dictionary<string, AuthorizationManager>();
             _tokenManager = new TokenManager();
             _configService = ConfigurationService.Instance;
-            _logger = LoggingService.Instance;
+            _logger = LoggingServiceManager.CreateLogger("OAuthLoginService");
 
-            _logger.LogInformation("OAuth登录服务初始化开始", "OAuthLoginService");
+            _logger.LogInformation("OAuth登录服务初始化开始");
             InitializeOAuthProviders();
             SubscribeToEvents();
-            _logger.LogInformation("OAuth登录服务初始化完成", "OAuthLoginService");
+            _logger.LogInformation("OAuth登录服务初始化完成");
         }
 
         /// <summary>
@@ -45,11 +46,11 @@ namespace AudioRecorder.Services
                 // 检查OAuth认证是否启用
                 if (!_configService.IsOAuthEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，跳过提供商初始化", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，跳过提供商初始化");
                     return;
                 }
 
-                _logger.LogInformation("开始初始化OAuth提供商", "OAuthLoginService");
+                _logger.LogInformation("开始初始化OAuth提供商");
 
                 // 初始化通用OAuth服务器
                 var genericConfig = _configService.GetGenericOAuthConfig();
@@ -60,11 +61,11 @@ namespace AudioRecorder.Services
                     var genericAuthManager = new AuthorizationManager(genericConfig);
                     _authManagers["GenericOAuth"] = genericAuthManager;
                     _tokenManager.AddAuthorizationManager("GenericOAuth", genericAuthManager);
-                    _logger.LogInformation("通用OAuth服务器提供商初始化成功", "OAuthLoginService");
+                    _logger.LogInformation("通用OAuth服务器提供商初始化成功");
                 }
                 else
                 {
-                    _logger.LogWarning("通用OAuth服务器配置未设置，跳过初始化", "OAuthLoginService");
+                    _logger.LogWarning("通用OAuth服务器配置未设置，跳过初始化");
                 }
 
                 // 初始化GitHub OAuth
@@ -74,11 +75,11 @@ namespace AudioRecorder.Services
                     var githubAuthManager = new AuthorizationManager(githubConfig);
                     _authManagers["GitHub"] = githubAuthManager;
                     _tokenManager.AddAuthorizationManager("GitHub", githubAuthManager);
-                    _logger.LogInformation("GitHub OAuth提供商初始化成功", "OAuthLoginService");
+                    _logger.LogInformation("GitHub OAuth提供商初始化成功");
                 }
                 else
                 {
-                    _logger.LogWarning("GitHub OAuth配置未设置，跳过初始化", "OAuthLoginService");
+                    _logger.LogWarning("GitHub OAuth配置未设置，跳过初始化");
                 }
 
                 // 初始化Google OAuth
@@ -88,18 +89,18 @@ namespace AudioRecorder.Services
                     var googleAuthManager = new AuthorizationManager(googleConfig);
                     _authManagers["Google"] = googleAuthManager;
                     _tokenManager.AddAuthorizationManager("Google", googleAuthManager);
-                    _logger.LogInformation("Google OAuth提供商初始化成功", "OAuthLoginService");
+                    _logger.LogInformation("Google OAuth提供商初始化成功");
                 }
                 else
                 {
-                    _logger.LogWarning("Google OAuth配置未设置，跳过初始化", "OAuthLoginService");
+                    _logger.LogWarning("Google OAuth配置未设置，跳过初始化");
                 }
 
-                _logger.LogInformation($"OAuth提供商初始化完成，共 {_authManagers.Count} 个提供商", "OAuthLoginService");
+                _logger.LogInformation($"OAuth提供商初始化完成，共 {_authManagers.Count} 个提供商");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"初始化OAuth提供商失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError(ex, "初始化OAuth提供商失败");
             }
         }
 
@@ -115,25 +116,25 @@ namespace AudioRecorder.Services
 
                 authManager.AuthorizationCompleted += (sender, tokenInfo) =>
                 {
-                    _logger.LogInformation($"{provider} 授权完成，用户: {tokenInfo.UserName}", "OAuthLoginService");
+                    _logger.LogInformation($"{provider} 授权完成，用户: {tokenInfo.UserName}");
                     LoginCompleted?.Invoke(this, tokenInfo);
                 };
 
                 authManager.AuthorizationFailed += (sender, error) =>
                 {
-                    _logger.LogError($"{provider} 授权失败: {error}", "OAuthLoginService");
+                    _logger.LogError($"{provider} 授权失败: {error}");
                     LoginFailed?.Invoke(this, $"{provider}: {error}");
                 };
 
                 authManager.TokenRefreshed += (sender, tokenInfo) =>
                 {
-                    _logger.LogInformation($"{provider} 令牌已刷新，用户: {tokenInfo.UserName}", "OAuthLoginService");
+                    _logger.LogInformation($"{provider} 令牌已刷新，用户: {tokenInfo.UserName}");
                 };
             }
 
             _tokenManager.LoginStateRestored += (sender, tokenInfo) =>
             {
-                _logger.LogInformation($"登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}", "OAuthLoginService");
+                _logger.LogInformation($"登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}");
                 LoginStateRestored?.Invoke(this, tokenInfo);
             };
         }
@@ -144,7 +145,7 @@ namespace AudioRecorder.Services
         public bool IsAuthenticationEnabled()
         {
             var enabled = _configService.IsOAuthEnabled();
-            _logger.LogDebug($"OAuth认证状态检查: {(enabled ? "已启用" : "已禁用")}", "OAuthLoginService");
+            _logger.LogDebug($"OAuth认证状态检查: {(enabled ? "已启用" : "已禁用")}");
             return enabled;
         }
 
@@ -155,17 +156,17 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _logger.LogInformation("正在启用OAuth认证", "OAuthLoginService");
+                _logger.LogInformation("正在启用OAuth认证");
                 
                 await _configService.EnableOAuthAsync();
                 InitializeOAuthProviders();
                 AuthenticationStatusChanged?.Invoke(this, true);
                 
-                _logger.LogInformation("OAuth认证已启用", "OAuthLoginService");
+                _logger.LogInformation("OAuth认证已启用");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"启用OAuth认证失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"启用OAuth认证失败: {ex.Message}", ex);
                 throw;
             }
         }
@@ -177,7 +178,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _logger.LogInformation("正在禁用OAuth认证", "OAuthLoginService");
+                _logger.LogInformation("正在禁用OAuth认证");
                 
                 await _configService.DisableOAuthAsync();
                 
@@ -193,11 +194,11 @@ namespace AudioRecorder.Services
                 
                 AuthenticationStatusChanged?.Invoke(this, false);
                 
-                _logger.LogInformation("OAuth认证已禁用，所有资源已清理", "OAuthLoginService");
+                _logger.LogInformation("OAuth认证已禁用，所有资源已清理");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"禁用OAuth认证失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"禁用OAuth认证失败: {ex.Message}", ex);
                 throw;
             }
         }
@@ -210,7 +211,7 @@ namespace AudioRecorder.Services
             try
             {
                 var currentStatus = IsAuthenticationEnabled();
-                _logger.LogInformation($"正在切换OAuth认证状态，当前状态: {(currentStatus ? "启用" : "禁用")}", "OAuthLoginService");
+                _logger.LogInformation($"正在切换OAuth认证状态，当前状态: {(currentStatus ? "启用" : "禁用")}");
                 
                 if (currentStatus)
                 {
@@ -223,7 +224,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"切换OAuth认证状态失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"切换OAuth认证状态失败: {ex.Message}", ex);
                 throw;
             }
         }
@@ -237,37 +238,37 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无法启动通用OAuth登录", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无法启动通用OAuth登录");
                     LoginFailed?.Invoke(this, "OAuth认证已禁用");
                     return false;
                 }
 
                 if (_authManagers.ContainsKey("GenericOAuth"))
                 {
-                    _logger.LogInformation("开始通用OAuth服务器登录流程", "OAuthLoginService");
+                    _logger.LogInformation("开始通用OAuth服务器登录流程");
                     var result = await _authManagers["GenericOAuth"].StartAuthorizationAsync();
                     
                     if (result)
                     {
-                        _logger.LogInformation("通用OAuth服务器登录流程启动成功", "OAuthLoginService");
+                        _logger.LogInformation("通用OAuth服务器登录流程启动成功");
                     }
                     else
                     {
-                        _logger.LogError("通用OAuth服务器登录流程启动失败", "OAuthLoginService");
+                        _logger.LogError("通用OAuth服务器登录流程启动失败");
                     }
                     
                     return result;
                 }
                 else
                 {
-                    _logger.LogError("通用OAuth服务器提供商未初始化", "OAuthLoginService");
+                    _logger.LogError("通用OAuth服务器提供商未初始化");
                     LoginFailed?.Invoke(this, "通用OAuth服务器提供商未初始化");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"启动通用OAuth登录失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"启动通用OAuth登录失败: {ex.Message}", ex);
                 LoginFailed?.Invoke(this, $"启动通用OAuth登录失败: {ex.Message}");
                 return false;
             }
@@ -282,37 +283,37 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无法启动GitHub登录", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无法启动GitHub登录");
                     LoginFailed?.Invoke(this, "OAuth认证已禁用");
                     return false;
                 }
 
                 if (_authManagers.ContainsKey("GitHub"))
                 {
-                    _logger.LogInformation("开始GitHub OAuth登录流程", "OAuthLoginService");
+                    _logger.LogInformation("开始GitHub OAuth登录流程");
                     var result = await _authManagers["GitHub"].StartAuthorizationAsync();
                     
                     if (result)
                     {
-                        _logger.LogInformation("GitHub OAuth登录流程启动成功", "OAuthLoginService");
+                        _logger.LogInformation("GitHub OAuth登录流程启动成功");
                     }
                     else
                     {
-                        _logger.LogError("GitHub OAuth登录流程启动失败", "OAuthLoginService");
+                        _logger.LogError("GitHub OAuth登录流程启动失败");
                     }
                     
                     return result;
                 }
                 else
                 {
-                    _logger.LogError("GitHub OAuth提供商未初始化", "OAuthLoginService");
+                    _logger.LogError("GitHub OAuth提供商未初始化");
                     LoginFailed?.Invoke(this, "GitHub OAuth提供商未初始化");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"启动GitHub登录失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"启动GitHub登录失败: {ex.Message}", ex);
                 LoginFailed?.Invoke(this, $"启动GitHub登录失败: {ex.Message}");
                 return false;
             }
@@ -327,37 +328,37 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无法启动Google登录", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无法启动Google登录");
                     LoginFailed?.Invoke(this, "OAuth认证已禁用");
                     return false;
                 }
 
                 if (_authManagers.ContainsKey("Google"))
                 {
-                    _logger.LogInformation("开始Google OAuth登录流程", "OAuthLoginService");
+                    _logger.LogInformation("开始Google OAuth登录流程");
                     var result = await _authManagers["Google"].StartAuthorizationAsync();
                     
                     if (result)
                     {
-                        _logger.LogInformation("Google OAuth登录流程启动成功", "OAuthLoginService");
+                        _logger.LogInformation("Google OAuth登录流程启动成功");
                     }
                     else
                     {
-                        _logger.LogError("Google OAuth登录流程启动失败", "OAuthLoginService");
+                        _logger.LogError("Google OAuth登录流程启动失败");
                     }
                     
                     return result;
                 }
                 else
                 {
-                    _logger.LogError("Google OAuth提供商未初始化", "OAuthLoginService");
+                    _logger.LogError("Google OAuth提供商未初始化");
                     LoginFailed?.Invoke(this, "Google OAuth提供商未初始化");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"启动Google登录失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"启动Google登录失败: {ex.Message}", ex);
                 LoginFailed?.Invoke(this, $"启动Google登录失败: {ex.Message}");
                 return false;
             }
@@ -372,37 +373,37 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning($"OAuth认证已禁用，无法启动{provider}登录", "OAuthLoginService");
+                    _logger.LogWarning($"OAuth认证已禁用，无法启动{provider}登录");
                     LoginFailed?.Invoke(this, "OAuth认证已禁用");
                     return false;
                 }
 
                 if (_authManagers.ContainsKey(provider))
                 {
-                    _logger.LogInformation($"开始{provider} OAuth登录流程", "OAuthLoginService");
+                    _logger.LogInformation($"开始{provider} OAuth登录流程");
                     var result = await _authManagers[provider].StartAuthorizationAsync();
                     
                     if (result)
                     {
-                        _logger.LogInformation($"{provider} OAuth登录流程启动成功", "OAuthLoginService");
+                        _logger.LogInformation($"{provider} OAuth登录流程启动成功");
                     }
                     else
                     {
-                        _logger.LogError($"{provider} OAuth登录流程启动失败", "OAuthLoginService");
+                        _logger.LogError($"{provider} OAuth登录流程启动失败");
                     }
                     
                     return result;
                 }
                 else
                 {
-                    _logger.LogError($"{provider} OAuth提供商未初始化", "OAuthLoginService");
+                    _logger.LogError($"{provider} OAuth提供商未初始化");
                     LoginFailed?.Invoke(this, $"{provider} OAuth提供商未初始化");
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"启动{provider}登录失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"启动{provider}登录失败: {ex.Message}", ex);
                 LoginFailed?.Invoke(this, $"启动{provider}登录失败: {ex.Message}");
                 return false;
             }
@@ -417,27 +418,27 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，跳过登录状态恢复", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，跳过登录状态恢复");
                     return false;
                 }
 
-                _logger.LogInformation("开始恢复登录状态", "OAuthLoginService");
+                _logger.LogInformation("开始恢复登录状态");
                 var result = await _tokenManager.RestoreLoginStateAsync();
                 
                 if (result)
                 {
-                    _logger.LogInformation("登录状态恢复成功", "OAuthLoginService");
+                    _logger.LogInformation("登录状态恢复成功");
                 }
                 else
                 {
-                    _logger.LogInformation("无有效登录状态需要恢复", "OAuthLoginService");
+                    _logger.LogInformation("无有效登录状态需要恢复");
                 }
                 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"恢复登录状态失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"恢复登录状态失败: {ex.Message}", ex);
                 return false;
             }
         }
@@ -455,12 +456,12 @@ namespace AudioRecorder.Services
                 }
 
                 var isLoggedIn = _tokenManager.IsTokenValid(provider);
-                _logger.LogDebug($"{provider} 登录状态检查: {(isLoggedIn ? "已登录" : "未登录")}", "OAuthLoginService");
+                _logger.LogDebug($"{provider} 登录状态检查: {(isLoggedIn ? "已登录" : "未登录")}");
                 return isLoggedIn;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"检查{provider}登录状态失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"检查{provider}登录状态失败: {ex.Message}", ex);
                 return false;
             }
         }
@@ -480,18 +481,18 @@ namespace AudioRecorder.Services
                 var token = _tokenManager.GetToken(provider);
                 if (token != null)
                 {
-                    _logger.LogDebug($"获取{provider}令牌信息: 用户={token.UserName}, 过期时间={token.ExpiresAt:yyyy-MM-dd HH:mm:ss}", "OAuthLoginService");
+                    _logger.LogDebug($"获取{provider}令牌信息: 用户={token.UserName}, 过期时间={token.ExpiresAt:yyyy-MM-dd HH:mm:ss}");
                 }
                 else
                 {
-                    _logger.LogDebug($"获取{provider}令牌信息: 无有效令牌", "OAuthLoginService");
+                    _logger.LogDebug($"获取{provider}令牌信息: 无有效令牌");
                 }
                 
                 return token;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取{provider}令牌信息失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"获取{provider}令牌信息失败: {ex.Message}", ex);
                 return null;
             }
         }
@@ -509,12 +510,12 @@ namespace AudioRecorder.Services
                 }
 
                 var providers = _tokenManager.GetProviders();
-                _logger.LogDebug($"获取已登录提供商列表: {string.Join(", ", providers)}", "OAuthLoginService");
+                _logger.LogDebug($"获取已登录提供商列表: {string.Join(", ", providers)}");
                 return providers;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取已登录提供商列表失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"获取已登录提供商列表失败: {ex.Message}", ex);
                 return new List<string>();
             }
         }
@@ -528,27 +529,27 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无需登出", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无需登出");
                     return;
                 }
 
                 if (_authManagers.ContainsKey(provider))
                 {
-                    _logger.LogInformation($"开始登出{provider}", "OAuthLoginService");
+                    _logger.LogInformation($"开始登出{provider}");
                     
                     await _authManagers[provider].LogoutAsync();
                     _tokenManager.RemoveToken(provider);
                     
-                    _logger.LogInformation($"{provider}已登出", "OAuthLoginService");
+                    _logger.LogInformation($"{provider}已登出");
                 }
                 else
                 {
-                    _logger.LogWarning($"{provider} OAuth提供商未初始化，无法登出", "OAuthLoginService");
+                    _logger.LogWarning($"{provider} OAuth提供商未初始化，无法登出");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"登出{provider}失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"登出{provider}失败: {ex.Message}", ex);
             }
         }
 
@@ -561,22 +562,22 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无需登出", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无需登出");
                     return;
                 }
 
-                _logger.LogInformation("开始登出所有提供商", "OAuthLoginService");
+                _logger.LogInformation("开始登出所有提供商");
                 
                 foreach (var provider in _authManagers.Keys)
                 {
                     await LogoutAsync(provider);
                 }
                 
-                _logger.LogInformation("所有提供商已登出", "OAuthLoginService");
+                _logger.LogInformation("所有提供商已登出");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"登出所有提供商失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"登出所有提供商失败: {ex.Message}", ex);
             }
         }
 
@@ -589,27 +590,27 @@ namespace AudioRecorder.Services
             {
                 if (!IsAuthenticationEnabled())
                 {
-                    _logger.LogWarning("OAuth认证已禁用，无法刷新令牌", "OAuthLoginService");
+                    _logger.LogWarning("OAuth认证已禁用，无法刷新令牌");
                     return false;
                 }
 
-                _logger.LogInformation($"开始刷新{provider}令牌", "OAuthLoginService");
+                _logger.LogInformation($"开始刷新{provider}令牌");
                 var result = await _tokenManager.RefreshTokenAsync(provider);
                 
                 if (result)
                 {
-                    _logger.LogInformation($"{provider}令牌刷新成功", "OAuthLoginService");
+                    _logger.LogInformation($"{provider}令牌刷新成功");
                 }
                 else
                 {
-                    _logger.LogWarning($"{provider}令牌刷新失败", "OAuthLoginService");
+                    _logger.LogWarning($"{provider}令牌刷新失败");
                 }
                 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"刷新{provider}令牌失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"刷新{provider}令牌失败: {ex.Message}", ex);
                 return false;
             }
         }
@@ -627,12 +628,12 @@ namespace AudioRecorder.Services
                 }
 
                 var summary = _tokenManager.GetLoginStatusSummary();
-                _logger.LogDebug($"获取登录状态摘要: {summary}", "OAuthLoginService");
+                _logger.LogDebug($"获取登录状态摘要: {summary}");
                 return summary;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取登录状态摘要失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"获取登录状态摘要失败: {ex.Message}", ex);
                 return "获取登录状态失败";
             }
         }
@@ -643,7 +644,7 @@ namespace AudioRecorder.Services
         public bool HasAvailableProviders()
         {
             var hasProviders = IsAuthenticationEnabled() && _authManagers.Count > 0;
-            _logger.LogDebug($"检查可用OAuth提供商: {(hasProviders ? "有" : "无")} ({_authManagers.Count}个)", "OAuthLoginService");
+            _logger.LogDebug($"检查可用OAuth提供商: {(hasProviders ? "有" : "无")} ({_authManagers.Count}个)");
             return hasProviders;
         }
 
@@ -660,12 +661,12 @@ namespace AudioRecorder.Services
                 }
 
                 var providers = _authManagers.Keys.ToList();
-                _logger.LogDebug($"获取可用OAuth提供商列表: {string.Join(", ", providers)}", "OAuthLoginService");
+                _logger.LogDebug($"获取可用OAuth提供商列表: {string.Join(", ", providers)}");
                 return providers;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取可用OAuth提供商列表失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"获取可用OAuth提供商列表失败: {ex.Message}", ex);
                 return new List<string>();
             }
         }
@@ -678,12 +679,12 @@ namespace AudioRecorder.Services
             try
             {
                 var summary = _configService.GetAuthenticationStatusSummary();
-                _logger.LogDebug($"获取认证状态摘要: {summary}", "OAuthLoginService");
+                _logger.LogDebug($"获取认证状态摘要: {summary}");
                 return summary;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"获取认证状态摘要失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"获取认证状态摘要失败: {ex.Message}", ex);
                 return "获取认证状态失败";
             }
         }
@@ -695,7 +696,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _logger.LogInformation("重新加载OAuth配置", "OAuthLoginService");
+                _logger.LogInformation("重新加载OAuth配置");
                 
                 _configService.ReloadConfiguration();
                 
@@ -714,11 +715,11 @@ namespace AudioRecorder.Services
                     _authManagers.Clear();
                 }
                 
-                _logger.LogInformation("OAuth配置重新加载完成", "OAuthLoginService");
+                _logger.LogInformation("OAuth配置重新加载完成");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"重新加载OAuth配置失败: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"重新加载OAuth配置失败: {ex.Message}", ex);
             }
         }
 
@@ -726,7 +727,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _logger.LogInformation("开始释放OAuth登录服务资源", "OAuthLoginService");
+                _logger.LogInformation("开始释放OAuth登录服务资源");
                 
                 foreach (var authManager in _authManagers.Values)
                 {
@@ -734,11 +735,11 @@ namespace AudioRecorder.Services
                 }
                 _tokenManager?.Dispose();
                 
-                _logger.LogInformation("OAuth登录服务资源释放完成", "OAuthLoginService");
+                _logger.LogInformation("OAuth登录服务资源释放完成");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"释放OAuth登录服务资源时出错: {ex.Message}", "OAuthLoginService", ex);
+                _logger.LogError($"释放OAuth登录服务资源时出错: {ex.Message}", ex);
             }
         }
     }

@@ -21,6 +21,7 @@ namespace AudioRecorder
         private SimpleWebSocketServer? webSocketServer;
         private AudioFileUploadService? uploadService;
         private IPCManager? ipcManager;
+        private SystemTrayManager? systemTrayManager;
         
         // OAuth相关字段
         private OAuthLoginService? oauthService;
@@ -56,17 +57,21 @@ namespace AudioRecorder
             this.Background = System.Windows.Media.Brushes.Transparent;
             
             // 确保窗口可见
-            this.ShowInTaskbar = true;
+            this.ShowInTaskbar = false;
             this.Visibility = System.Windows.Visibility.Visible;
             
             // 延迟设置窗口位置，确保窗口完全初始化后再设置
             this.Loaded += (s, e) => SetWindowPosition();
+            
+            // 窗口状态变化事件 - 最小化时隐藏到托盘
+            this.StateChanged += OnWindowStateChanged;
             
             // 初始化组件
             InitializeRecorder();
             InitializeOAuth();
             InitializeWebSocket();
             InitializeIPC();
+            InitializeSystemTray();
             LoadIcons();
             
             // 根据OAuth认证状态和登录状态决定初始显示
@@ -76,14 +81,32 @@ namespace AudioRecorder
                 // OAuth未启用，直接显示模态1（录音状态）
                 ShowModal1();
             }
-            else if (isLoggedIn)
-            {
-                ShowModal1();
-                HideLoginPanel();
-            }
             else
             {
-                ShowModal3(); // 显示模态3以显示登录状态
+                // OAuth已启用，尝试恢复登录状态
+                _ = Task.Run(async () =>
+                {
+                    await RestoreLoginStateAsync();
+                    
+                    // 在UI线程上更新界面
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (isLoggedIn)
+                        {
+                            ShowModal1();
+                            HideLoginPanel();
+                        }
+                        else
+                        {
+                            ShowLoginPanel();
+                            ShowModal3(); // 显示模态3以显示登录状态
+                        }
+                    });
+                });
+                
+                // 暂时显示模态3和登录面板，等待登录状态恢复
+                ShowLoginPanel();
+                ShowModal3();
             }
             
             // 设置拖拽
@@ -159,6 +182,11 @@ namespace AudioRecorder
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
                 UpdateLoginUI(tokenInfo);
+                UpdateTrayUserStatus();
+                
+                // 显示登录成功通知
+                systemTrayManager?.ShowNotification("AudioRecorder", $"{tokenInfo.Provider} 登录成功", System.Windows.Forms.ToolTipIcon.Info);
+                
                 _logger.LogInformation($"✅ {tokenInfo.Provider}授权完成: {tokenInfo.UserName}");
             });
         }
@@ -170,6 +198,11 @@ namespace AudioRecorder
                 isLoggedIn = false;
                 currentProvider = null;
                 UpdateLoginUI(null);
+                UpdateTrayUserStatus();
+                
+                // 显示登录失败通知
+                systemTrayManager?.ShowNotification("AudioRecorder", "登录失败", System.Windows.Forms.ToolTipIcon.Error);
+                
                 _logger.LogInformation($"❌ {currentProvider}授权失败: {error}");
                 WpfMessageBox.Show($"{currentProvider}授权失败: {error}", "授权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
             });
@@ -182,6 +215,7 @@ namespace AudioRecorder
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
                 UpdateLoginUI(tokenInfo);
+                UpdateTrayUserStatus();
                 _logger.LogInformation($"🔄 登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}");
             });
         }
@@ -254,7 +288,8 @@ namespace AudioRecorder
             {
                 isLoggedIn = false;
                 currentProvider = null;
-                // 未登录，显示模态3（登录状态）
+                // 未登录，显示登录面板和模态3（登录状态）
+                ShowLoginPanel();
                 ShowModal3();
             }
         }
@@ -280,6 +315,156 @@ namespace AudioRecorder
                 _logger.LogInformation($"❌ 恢复登录状态失败: {ex.Message}");
             }
         }
+
+        #region 系统托盘事件处理
+
+        /// <summary>
+        /// 托盘显示窗口请求
+        /// </summary>
+        private void OnTrayShowWindowRequested(object? sender, EventArgs e)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    // 显示并激活窗口
+                    if (this.WindowState == System.Windows.WindowState.Minimized)
+                    {
+                        this.WindowState = System.Windows.WindowState.Normal;
+                    }
+                    
+                    this.Show();
+                    this.Activate();
+                    this.Topmost = true;
+                    this.Topmost = false; // 临时设置Topmost来确保窗口显示在前面
+                    
+                    _logger.LogInformation("从托盘恢复窗口显示");
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从托盘恢复窗口失败");
+            }
+        }
+
+        /// <summary>
+        /// 托盘退出应用请求
+        /// </summary>
+        private void OnTrayExitApplicationRequested(object? sender, EventArgs e)
+        {
+            try
+            {
+                _logger.LogInformation("用户从托盘请求退出应用");
+                
+                Dispatcher.Invoke(() =>
+                {
+                    // 如果正在录制，先停止录制
+                    if (isRecording && recorder != null)
+                    {
+                        _logger.LogInformation("正在录音，先停止录制再退出");
+                        ShowStopConfirmOverlay();
+                    }
+                    else
+                    {
+                        CloseApplication();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "托盘退出应用失败");
+                CloseApplication();
+            }
+        }
+
+        /// <summary>
+        /// 托盘退出登录请求
+        /// </summary>
+        private void OnTrayLogoutRequested(object? sender, EventArgs e)
+        {
+            try
+            {
+                _logger.LogInformation("用户从托盘请求退出登录");
+                
+                Dispatcher.Invoke(async () =>
+                {
+                    await PerformLogoutAsync();
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "托盘退出登录失败");
+            }
+        }
+
+        /// <summary>
+        /// 执行退出登录
+        /// </summary>
+        private async Task PerformLogoutAsync()
+        {
+            try
+            {
+                if (oauthService != null && !string.IsNullOrEmpty(currentProvider))
+                {
+                    await oauthService.LogoutAsync(currentProvider);
+                    
+                    // 更新UI状态
+                    isLoggedIn = false;
+                    currentProvider = null;
+                    
+                    // 确保窗口可见并激活
+                    if (this.WindowState == System.Windows.WindowState.Minimized || !this.IsVisible)
+                    {
+                        this.Show();
+                        this.WindowState = System.Windows.WindowState.Normal;
+                        this.Activate();
+                        this.ShowInTaskbar = true;
+                    }
+                    
+                    // 更新UI状态 - 这会触发显示模态3
+                    UpdateLoginUI(null);
+                    UpdateTrayUserStatus();
+                    
+                    // 显示通知
+                    systemTrayManager?.ShowNotification("AudioRecorder", "已退出登录", System.Windows.Forms.ToolTipIcon.Info);
+                    
+                    _logger.LogInformation("✅ 退出登录成功，已切换到登录界面");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "退出登录失败");
+                systemTrayManager?.ShowNotification("AudioRecorder", "退出登录失败", System.Windows.Forms.ToolTipIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 更新托盘用户状态
+        /// </summary>
+        private void UpdateTrayUserStatus()
+        {
+            try
+            {
+                if (systemTrayManager != null)
+                {
+                    // 获取当前用户信息
+                    TokenInfo? currentUser = null;
+                    if (isLoggedIn && oauthService != null && !string.IsNullOrEmpty(currentProvider))
+                    {
+                        // 从OAuth服务获取当前用户令牌信息
+                        currentUser = oauthService.GetToken(currentProvider);
+                    }
+                    
+                    systemTrayManager.UpdateUserStatus(currentUser);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "更新托盘用户状态失败");
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// 隐藏登录面板
@@ -344,6 +529,31 @@ namespace AudioRecorder
             catch (Exception ex)
             {
                 _logger.LogError($"IPC服务器启动失败: {ex.Message}");
+            }
+        }
+
+        private void InitializeSystemTray()
+        {
+            try
+            {
+                _logger.LogInformation("初始化系统托盘");
+                
+                // 创建系统托盘管理器
+                systemTrayManager = new SystemTrayManager();
+                
+                // 订阅托盘事件
+                systemTrayManager.ShowWindowRequested += OnTrayShowWindowRequested;
+                systemTrayManager.ExitApplicationRequested += OnTrayExitApplicationRequested;
+                systemTrayManager.LogoutRequested += OnTrayLogoutRequested;
+                
+                // 初始化用户状态
+                UpdateTrayUserStatus();
+                
+                _logger.LogInformation("✅ 系统托盘初始化成功");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ 系统托盘初始化失败");
             }
         }
 
@@ -659,6 +869,97 @@ namespace AudioRecorder
         }
         
         /// <summary>
+        /// 窗口状态变化事件处理
+        /// </summary>
+        private void OnWindowStateChanged(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (this.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    // 最小化时隐藏窗口到托盘
+                    this.Hide();
+                    this.ShowInTaskbar = false;
+                    
+                    // 显示托盘通知
+                    systemTrayManager?.ShowNotification("AudioRecorder", "程序已最小化到系统托盘", System.Windows.Forms.ToolTipIcon.Info, 2000);
+                    
+                    _logger.LogInformation("窗口已最小化到系统托盘");
+                }
+                else if (this.WindowState == System.Windows.WindowState.Normal)
+                {
+                    // 恢复时显示在任务栏
+                    this.ShowInTaskbar = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "处理窗口状态变化失败");
+            }
+        }
+
+        /// <summary>
+        /// 窗口关闭事件处理
+        /// </summary>
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            try
+            {
+                // 如果正在录制，阻止关闭并显示确认对话框
+                if (isRecording && recorder != null)
+                {
+                    e.Cancel = true;
+                    ShowStopConfirmOverlay();
+                    return;
+                }
+
+                // 正常关闭时清理资源
+                CleanupResources();
+                
+                base.OnClosing(e);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "窗口关闭事件处理失败");
+                base.OnClosing(e);
+            }
+        }
+
+        /// <summary>
+        /// 清理资源
+        /// </summary>
+        private void CleanupResources()
+        {
+            try
+            {
+                _logger?.LogInformation("开始清理应用程序资源");
+
+                // 保存窗口位置
+                SaveWindowPosition();
+
+                // 停止录制
+                if (isRecording && recorder != null)
+                {
+                    recorder.StopRecording();
+                }
+
+                // 清理系统托盘
+                systemTrayManager?.Dispose();
+
+                // 清理其他服务
+                webSocketServer?.Dispose();
+                ipcManager?.Dispose();
+                recorder?.Dispose();
+
+                _logger?.LogInformation("✅ 应用程序资源清理完成");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "清理应用程序资源失败");
+            }
+        }
+
+        /// <summary>
         /// 关闭应用程序
         /// </summary>
         private void CloseApplication()
@@ -673,7 +974,7 @@ namespace AudioRecorder
                 _logger?.LogError(ex, "正常关闭失败，强制退出");
                 try
                 {
-                    Application.Current?.Shutdown();
+                    System.Windows.Application.Current?.Shutdown();
                 }
                 catch
                 {
@@ -1294,7 +1595,7 @@ namespace AudioRecorder
                 base.OnClosed(e);
                 
                 // 强制退出应用程序
-                Application.Current?.Shutdown();
+                System.Windows.Application.Current?.Shutdown();
             }
             catch (Exception ex)
             {
@@ -1303,7 +1604,7 @@ namespace AudioRecorder
                 // 即使出错也要强制退出
                 try
                 {
-                    Application.Current?.Shutdown();
+                    System.Windows.Application.Current?.Shutdown();
                 }
                 catch
                 {

@@ -91,11 +91,11 @@ namespace AudioRecorder
                     }
                     
                     // 如果没有协议调用或发送失败，激活现有实例
-                    MessageBox.Show(
+                    System.Windows.MessageBox.Show(
                         "AudioRecorder 已经在运行中！\n\n请检查系统托盘或任务栏。",
                         "AudioRecorder - 实例已运行",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information
                     );
                     
                     // 尝试激活已运行的实例
@@ -139,8 +139,8 @@ namespace AudioRecorder
                 // 启动 WPF 应用程序
                 var app = new System.Windows.Application();
                 
-                // 设置应用程序关闭模式 - 主窗口关闭时退出应用程序
-                app.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                // 设置应用程序关闭模式 - 显式关闭时才退出应用程序（支持托盘运行）
+                app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
                 
                 // 添加应用程序退出事件处理
                 app.Exit += (sender, e) =>

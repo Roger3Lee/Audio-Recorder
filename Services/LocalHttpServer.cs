@@ -37,6 +37,10 @@ namespace AudioRecorder.Services
         {
             try
             {
+                if (_isRunning) {
+                    return true;
+                }
+
                 _listener = new HttpListener();
                 _listener.Prefixes.Add($"http://localhost:{_port}/");
                 _listener.Start();

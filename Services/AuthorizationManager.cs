@@ -8,6 +8,7 @@ using AudioRecorder.Models;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using System.Drawing;
 
 namespace AudioRecorder.Services
 {
@@ -139,7 +140,7 @@ namespace AudioRecorder.Services
 
                 // 1. 使用授权码交换访问令牌
                 var tokenInfo = await ExchangeAuthorizationCodeAsync(authorizationCode);
-                if (tokenInfo == null)
+                if (tokenInfo == null || String.IsNullOrEmpty( tokenInfo.AccessToken))
                 {
                     throw new Exception("令牌交换失败");
                 }
@@ -166,7 +167,6 @@ namespace AudioRecorder.Services
             {
                 Console.WriteLine($"❌ 处理授权码失败: {ex.Message}");
                 AuthorizationFailed?.Invoke(this, ex.Message);
-                _httpServer.Stop();
             }
         }
 
