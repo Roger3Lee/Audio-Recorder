@@ -301,14 +301,19 @@ namespace AudioRecorder.Services
                 {
                     await GetGoogleUserInfoAsync(tokenInfo);
                 }
+                else if (!string.IsNullOrEmpty(_config.UserInfoEndpoint))
+                {
+                    // 自定义OAuth2服务器
+                    await GetGenericUserInfoAsync(tokenInfo);
+                }
                 else
                 {
-                    Console.WriteLine($"⚠️ 暂不支持获取 {_config.ProviderName} 用户信息");
+                    _logger.LogWarning($"⚠️ {_config.ProviderName} 未配置用户信息端点，跳过获取用户信息");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 获取用户信息失败: {ex.Message}");
+                _logger.LogWarning($"⚠️ 获取用户信息失败: {ex.Message}");
             }
         }
 
@@ -337,7 +342,7 @@ namespace AudioRecorder.Services
                         tokenInfo.UserName = userInfo.Name ?? userInfo.Login; // 如果姓名为空，使用用户名
                         tokenInfo.UserAvatar = userInfo.AvatarUrl;
 
-                        Console.WriteLine($"👤 GitHub用户信息: {userInfo.Name ?? userInfo.Login} ({userInfo.Login})");
+                        _logger.LogInformation($"👤 GitHub用户信息: {userInfo.Name ?? userInfo.Login} ({userInfo.Login})");
                         
                         // 如果邮箱为空，尝试获取邮箱信息
                         if (string.IsNullOrEmpty(userInfo.Email))
@@ -348,12 +353,12 @@ namespace AudioRecorder.Services
                 }
                 else
                 {
-                    Console.WriteLine($"⚠️ 获取GitHub用户信息失败: {response.StatusCode}");
+                    _logger.LogWarning($"⚠️ 获取GitHub用户信息失败: {response.StatusCode}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 获取GitHub用户信息异常: {ex.Message}");
+                _logger.LogWarning($"⚠️ 获取GitHub用户信息异常: {ex.Message}");
             }
         }
 
@@ -380,13 +385,13 @@ namespace AudioRecorder.Services
                         // 优先使用主邮箱
                         var primaryEmail = emails.FirstOrDefault(e => e.Primary) ?? emails[0];
                         tokenInfo.UserEmail = primaryEmail.Email;
-                        Console.WriteLine($"📧 GitHub用户邮箱: {primaryEmail.Email}");
+                        _logger.LogInformation($"📧 GitHub用户邮箱: {primaryEmail.Email}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 获取GitHub用户邮箱失败: {ex.Message}");
+                _logger.LogWarning($"⚠️ 获取GitHub用户邮箱失败: {ex.Message}");
             }
         }
 
@@ -413,17 +418,79 @@ namespace AudioRecorder.Services
                         tokenInfo.UserName = userInfo.Name;
                         tokenInfo.UserAvatar = userInfo.Picture;
 
-                        Console.WriteLine($"👤 Google用户信息: {userInfo.Name} ({userInfo.Email})");
+                        _logger.LogInformation($"👤 Google用户信息: {userInfo.Name} ({userInfo.Email})");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"⚠️ 获取Google用户信息失败: {response.StatusCode}");
+                    _logger.LogWarning($"⚠️ 获取Google用户信息失败: {response.StatusCode}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 获取Google用户信息异常: {ex.Message}");
+                _logger.LogWarning($"⚠️ 获取Google用户信息异常: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取自定义OAuth2服务器用户信息
+        /// </summary>
+        private async Task GetGenericUserInfoAsync(TokenInfo tokenInfo)
+        {
+            try
+            {
+                _logger.LogInformation($"🔍 正在从 {_config.ProviderName} 获取用户信息...");
+
+                var request = new HttpRequestMessage(HttpMethod.Get, _config.UserInfoEndpoint);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenInfo.AccessToken);
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                // 添加User-Agent头，某些服务器可能需要
+                request.Headers.Add("User-Agent", "AudioRecorder/1.0");
+
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    _logger.LogDebug($"📥 用户信息响应: {content}");
+
+                    var userInfo = JsonSerializer.Deserialize<GenericUserInfo>(content);
+
+                    if (userInfo != null)
+                    {
+                        // 使用通用方法获取用户信息
+                        tokenInfo.UserId = userInfo.GetUserId();
+                        tokenInfo.UserEmail = userInfo.Email ?? string.Empty;
+                        tokenInfo.UserName = userInfo.GetUserName();
+                        tokenInfo.UserAvatar = userInfo.GetAvatarUrl();
+
+                        _logger.LogInformation($"👤 {_config.ProviderName} 用户信息: {tokenInfo.UserName} ({tokenInfo.UserEmail})");
+                        
+                        // 记录调试信息
+                        if (!string.IsNullOrEmpty(tokenInfo.UserId))
+                        {
+                            _logger.LogDebug($"🆔 用户ID: {tokenInfo.UserId}");
+                        }
+                        if (!string.IsNullOrEmpty(tokenInfo.UserAvatar))
+                        {
+                            _logger.LogDebug($"🖼️ 头像URL: {tokenInfo.UserAvatar}");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"⚠️ 无法解析 {_config.ProviderName} 用户信息响应");
+                    }
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning($"⚠️ 获取 {_config.ProviderName} 用户信息失败: {response.StatusCode} - {errorContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 获取 {_config.ProviderName} 用户信息异常: {ex.Message}");
             }
         }
 

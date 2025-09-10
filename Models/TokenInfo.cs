@@ -148,4 +148,115 @@ namespace AudioRecorder.Models
         [JsonPropertyName("updated_at")]
         public DateTime UpdatedAt { get; set; }
     }
+
+    /// <summary>
+    /// 通用OAuth2用户信息
+    /// </summary>
+    public class GenericUserInfo
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("sub")]
+        public string? Sub { get; set; } // OpenID Connect标准字段
+
+        [JsonPropertyName("username")]
+        public string? Username { get; set; }
+
+        [JsonPropertyName("login")]
+        public string? Login { get; set; }
+
+        [JsonPropertyName("email")]
+        public string? Email { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("display_name")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("first_name")]
+        public string? FirstName { get; set; }
+
+        [JsonPropertyName("last_name")]
+        public string? LastName { get; set; }
+
+        [JsonPropertyName("avatar_url")]
+        public string? AvatarUrl { get; set; }
+
+        [JsonPropertyName("avatar")]
+        public string? Avatar { get; set; }
+
+        [JsonPropertyName("picture")]
+        public string? Picture { get; set; }
+
+        [JsonPropertyName("profile_image_url")]
+        public string? ProfileImageUrl { get; set; }
+
+        [JsonPropertyName("company")]
+        public string? Company { get; set; }
+
+        [JsonPropertyName("organization")]
+        public string? Organization { get; set; }
+
+        [JsonPropertyName("location")]
+        public string? Location { get; set; }
+
+        [JsonPropertyName("bio")]
+        public string? Bio { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("website")]
+        public string? Website { get; set; }
+
+        [JsonPropertyName("blog")]
+        public string? Blog { get; set; }
+
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
+
+        [JsonPropertyName("created_at")]
+        public DateTime? CreatedAt { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>
+        /// 获取用户ID（优先级：id > sub > username > login）
+        /// </summary>
+        public string GetUserId()
+        {
+            return !string.IsNullOrEmpty(Id) ? Id :
+                   !string.IsNullOrEmpty(Sub) ? Sub :
+                   !string.IsNullOrEmpty(Username) ? Username :
+                   !string.IsNullOrEmpty(Login) ? Login :
+                   string.Empty;
+        }
+
+        /// <summary>
+        /// 获取用户名（优先级：name > display_name > username > login）
+        /// </summary>
+        public string GetUserName()
+        {
+            return !string.IsNullOrEmpty(Name) ? Name :
+                   !string.IsNullOrEmpty(DisplayName) ? DisplayName :
+                   !string.IsNullOrEmpty(Username) ? Username :
+                   !string.IsNullOrEmpty(Login) ? Login :
+                   string.Empty;
+        }
+
+        /// <summary>
+        /// 获取头像URL（优先级：avatar_url > avatar > picture > profile_image_url）
+        /// </summary>
+        public string GetAvatarUrl()
+        {
+            return !string.IsNullOrEmpty(AvatarUrl) ? AvatarUrl :
+                   !string.IsNullOrEmpty(Avatar) ? Avatar :
+                   !string.IsNullOrEmpty(Picture) ? Picture :
+                   !string.IsNullOrEmpty(ProfileImageUrl) ? ProfileImageUrl :
+                   string.Empty;
+        }
+    }
 }

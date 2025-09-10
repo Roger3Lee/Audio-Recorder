@@ -22,6 +22,9 @@ namespace AudioRecorder.Models
         [JsonPropertyName("token_endpoint")]
         public string TokenEndpoint { get; set; } = string.Empty;
 
+        [JsonPropertyName("userinfo_endpoint")]
+        public string UserInfoEndpoint { get; set; } = string.Empty;
+
         [JsonPropertyName("scopes")]
         public string[] Scopes { get; set; } = Array.Empty<string>();
 
@@ -65,6 +68,7 @@ namespace AudioRecorder.Models
             RedirectUri = "http://localhost:8081/auth/callback",
             AuthorizationEndpoint = "/oauth/authorize", // 相对于ServerUrl的路径
             TokenEndpoint = "/oauth/token", // 相对于ServerUrl的路径
+            UserInfoEndpoint = "/oauth/userinfo", // 相对于ServerUrl的路径
             Scopes = new[] { "user", "user:email" },
             ProviderName = "GenericOAuth",
             EnablePkce = false, // 默认不支持PKCE，可根据服务器要求调整
@@ -85,6 +89,7 @@ namespace AudioRecorder.Models
                 RedirectUri = redirectUri,
                 AuthorizationEndpoint = serverUrl.TrimEnd('/') + "/oauth/authorize",
                 TokenEndpoint = serverUrl.TrimEnd('/') + "/oauth/token",
+                UserInfoEndpoint = serverUrl.TrimEnd('/') + "/oauth/userinfo",
                 Scopes = new[] { "user", "user:email" },
                 ProviderName = "GenericOAuth",
                 EnablePkce = false,

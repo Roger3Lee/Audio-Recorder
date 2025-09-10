@@ -194,8 +194,6 @@ namespace AudioRecorder.Services
             font-family: 'Microsoft YaHei', sans-serif; 
             text-align: center; 
             padding: 50px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             margin: 0;
         }
         .container { 
@@ -239,7 +237,7 @@ namespace AudioRecorder.Services
     <div class='container'>
         <div class='success-icon'>✅</div>
         <h1>授权成功！</h1>
-        <p>您的Google账户已成功授权，可以关闭此页面了。</p>
+        <p>账户已成功授权，可以关闭此页面了。</p>
         <button class='close-btn' onclick='window.close()'>关闭页面</button>
     </div>
     <script>
