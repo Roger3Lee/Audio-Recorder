@@ -56,7 +56,7 @@ namespace AudioRecorder.Services
         /// <param name="microphonePath">麦克风音频文件路径</param>
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>上传结果</returns>
-        public async Task<bool> UploadAudioFilesAsync(string systemAudioPath, string microphonePath, CancellationToken cancellationToken = default)
+        public async Task<bool> UploadAudioFilesAsync(string systemAudioPath, string microphonePath,string accssToken, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("开始上传音频文件流程");
             
@@ -87,7 +87,7 @@ namespace AudioRecorder.Services
             {
                 OnUploadProgressChanged("🚀 开始上传音频文件...");
 
-                var uploadResult = await UploadWithRetryAsync(systemAudioPath, microphonePath, cancellationToken);
+                var uploadResult = await UploadWithRetryAsync(systemAudioPath, microphonePath,accssToken, cancellationToken);
 
                 if (uploadResult)
                 {
@@ -120,7 +120,7 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 带重试的上传方法
         /// </summary>
-        private async Task<bool> UploadWithRetryAsync(string systemAudioPath, string microphonePath, CancellationToken cancellationToken)
+        private async Task<bool> UploadWithRetryAsync(string systemAudioPath, string microphonePath, string accssToken, CancellationToken cancellationToken)
         {
             _logger.LogInformation("开始重试上传流程，最大重试次数: {MaxRetries}", _uploadSettings.RetryCount);
             
@@ -131,7 +131,7 @@ namespace AudioRecorder.Services
                     _logger.LogInformation("开始上传尝试 {Attempt}/{MaxRetries}", attempt, _uploadSettings.RetryCount);
                     OnUploadProgressChanged($"📤 上传尝试 {attempt}/{_uploadSettings.RetryCount}...");
 
-                    var result = await UploadSingleAttemptAsync(systemAudioPath, microphonePath, cancellationToken);
+                    var result = await UploadSingleAttemptAsync(systemAudioPath, microphonePath, accssToken, cancellationToken);
                     if (result)
                     {
                         _logger.LogInformation("上传尝试 {Attempt} 成功", attempt);
@@ -167,7 +167,7 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 单次上传尝试
         /// </summary>
-        private async Task<bool> UploadSingleAttemptAsync(string systemAudioPath, string microphonePath, CancellationToken cancellationToken)
+        private async Task<bool> UploadSingleAttemptAsync(string systemAudioPath, string microphonePath, string accssToken, CancellationToken cancellationToken)
         {
             _logger.LogInformation("准备单次上传尝试");
             
@@ -199,11 +199,11 @@ namespace AudioRecorder.Services
                 {
                     Content = formData
                 };
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _uploadSettings.AuthorizationToken);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accssToken);
                 
                 _logger.LogInformation("准备发送HTTP请求到: {ApiUrl}", apiUrl);
-                _logger.LogDebug("请求头设置完成，授权令牌长度: {TokenLength}", 
-                    _uploadSettings.AuthorizationToken?.Length ?? 0);
+                _logger.LogDebug("请求头设置完成，授权令牌长度: {TokenLength}",
+                    accssToken?.Length ?? 0);
 
                 OnUploadProgressChanged("📡 正在上传到服务器...");
 

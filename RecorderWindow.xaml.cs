@@ -1524,7 +1524,7 @@ namespace AudioRecorder
                         try
                         {
                             _logger.LogInformation("开始后台上传任务");
-                            await uploadService.UploadAudioFilesAsync(systemAudioPath, microphonePath);
+                            await uploadService.UploadAudioFilesAsync(systemAudioPath, microphonePath, oauthService.GetAccessToken(currentProvider));
                             _logger.LogInformation("后台上传任务完成");
                         }
                         catch (Exception ex)

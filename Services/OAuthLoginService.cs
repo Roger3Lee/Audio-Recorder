@@ -509,6 +509,11 @@ namespace AudioRecorder.Services
             }
         }
 
+        public string GetAccessToken(string provider)
+        {
+            return GetToken(provider)?.AccessToken ?? String.Empty;
+        }
+
         /// <summary>
         /// 获取所有已登录的提供商
         /// </summary>
