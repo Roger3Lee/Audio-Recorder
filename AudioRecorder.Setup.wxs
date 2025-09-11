@@ -8,10 +8,7 @@
                   AllowDowngrades="no"
                   Schedule="afterInstallInitialize" />
     
-    <!-- 安装条件检查 -->
-    <Property Id="ALREADYINSTALLED">
-      <RegistrySearch Id="AlreadyInstalled" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\AudioRecorder" Name="DisplayName" Type="raw" />
-    </Property>
+
     
     <!-- 媒体配置 -->
     <MediaTemplate EmbedCab="yes" />
@@ -58,7 +55,9 @@
         <!-- 应用程序配置注册表 -->
         <RegistryKey Root="HKLM" Key="Software\AudioRecorder">
           <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
-          <RegistryValue Name="Version" Value="1.0.0" Type="string" />
+          <RegistryValue Name="Version" Value="1.0.3" Type="string" />
+          <RegistryValue Name="ProductCode" Value="[ProductCode]" Type="string" />
+          <RegistryValue Name="UpgradeCode" Value="12345678-1234-1234-1234-123456789012" Type="string" />
         </RegistryKey>
         
         <!-- 卸载时清理注册表项 -->
@@ -69,6 +68,10 @@
       <Component Id="AppSettingsComponent" Directory="INSTALLFOLDER" Guid="*">
         <File Id="AppSettings" Name="appsettings.json" 
               Source="bin\Release\net8.0-windows\win-x64\publish\appsettings.json" KeyPath="yes" />
+      </Component>
+      <Component Id="appIcon" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="appIcon" Name="icon.ico" 
+              Source="bin\Release\net8.0-windows\win-x64\publish\icon.ico" KeyPath="yes" />
       </Component>
       
       <!-- 调试符号文件（可选） -->
