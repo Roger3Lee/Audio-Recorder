@@ -161,11 +161,11 @@ namespace AudioRecorder.Services
                     logoutItem.Enabled = _currentUser != null;
                 }
 
-                // 更新退出登录分隔线的显示状态
-                var logoutSeparator = _contextMenu.Items["LogoutSeparator"] as ToolStripSeparator;
-                if (logoutSeparator != null)
+                // 更新用户信息分隔线的显示状态
+                var userSeparator = _contextMenu.Items["UserSeparator"] as ToolStripSeparator;
+                if (userSeparator != null)
                 {
-                    logoutSeparator.Visible = _currentUser != null; // 只有登录时才显示
+                    userSeparator.Visible = _currentUser != null; // 只有登录时才显示
                 }
             }
             catch (Exception ex)

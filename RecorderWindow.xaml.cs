@@ -179,8 +179,13 @@ namespace AudioRecorder
         {
             Dispatcher.InvokeAsync(() =>
             {
+                _logger.LogInformation($"✅ OAuth登录完成事件触发 - Provider: {tokenInfo.Provider}, User: {tokenInfo.UserName}");
+                
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
+                
+                _logger.LogDebug($"设置登录状态 - isLoggedIn: {isLoggedIn}, currentProvider: {currentProvider}");
+                
                 UpdateLoginUI(tokenInfo);
                 UpdateTrayUserStatus();
                 
@@ -195,6 +200,8 @@ namespace AudioRecorder
         {
             Dispatcher.InvokeAsync(() =>
             {
+                var failedProvider = currentProvider; // 保存失败的提供商名称
+                
                 isLoggedIn = false;
                 currentProvider = null;
                 UpdateLoginUI(null);
@@ -203,8 +210,8 @@ namespace AudioRecorder
                 // 显示登录失败通知
                 systemTrayManager?.ShowNotification("AudioRecorder", "登录失败", System.Windows.Forms.ToolTipIcon.Error);
                 
-                _logger.LogInformation($"❌ {currentProvider}授权失败: {error}");
-                WpfMessageBox.Show($"{currentProvider}授权失败: {error}", "授权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _logger.LogInformation($"❌ {failedProvider ?? "未知提供商"}授权失败: {error}");
+                WpfMessageBox.Show($"{failedProvider ?? "OAuth"}授权失败: {error}", "授权失败", MessageBoxButton.OK, MessageBoxImage.Warning);
             });
         }
 
@@ -212,8 +219,13 @@ namespace AudioRecorder
         {
             Dispatcher.InvokeAsync(() =>
             {
+                _logger.LogInformation($"🔄 OAuth登录状态恢复事件触发 - Provider: {tokenInfo.Provider}, User: {tokenInfo.UserName}");
+                
                 isLoggedIn = true;
                 currentProvider = tokenInfo.Provider;
+                
+                _logger.LogDebug($"恢复登录状态 - isLoggedIn: {isLoggedIn}, currentProvider: {currentProvider}");
+                
                 UpdateLoginUI(tokenInfo);
                 UpdateTrayUserStatus();
                 _logger.LogInformation($"🔄 登录状态已恢复: {tokenInfo.Provider} - {tokenInfo.UserName}");
@@ -239,13 +251,15 @@ namespace AudioRecorder
 
                     // 如果有多个提供商，可以选择，这里暂时使用第一个
                     var provider = providers[0];
-                    currentProvider = provider;
+                    // 注意：不要在这里设置 currentProvider，应该在登录成功后设置
                     
                     _logger.LogInformation($"🚀 开始{provider} OAuth登录流程");
                     var success = await oauthService.StartLoginAsync(provider);
                     if (!success)
                     {
                         WpfMessageBox.Show($"启动{provider}登录失败", "登录失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        // 登录失败时确保 currentProvider 为 null
+                        currentProvider = null;
                     }
                 }
                 else
@@ -257,6 +271,8 @@ namespace AudioRecorder
             {
                 _logger.LogInformation($"❌ 登录按钮点击事件处理失败: {ex.Message}");
                 WpfMessageBox.Show($"登录失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                // 异常时确保 currentProvider 为 null
+                currentProvider = null;
             }
         }
 
@@ -404,13 +420,18 @@ namespace AudioRecorder
         {
             try
             {
-                if (oauthService != null && !string.IsNullOrEmpty(currentProvider))
+                var logoutProvider = currentProvider; // 保存要退出的提供商
+                _logger.LogInformation($"开始执行退出登录 - Provider: {logoutProvider ?? "null"}");
+                
+                if (oauthService != null && !string.IsNullOrEmpty(logoutProvider))
                 {
-                    await oauthService.LogoutAsync(currentProvider);
+                    await oauthService.LogoutAsync(logoutProvider);
                     
                     // 更新UI状态
                     isLoggedIn = false;
                     currentProvider = null;
+                    
+                    _logger.LogDebug($"退出登录后状态 - isLoggedIn: {isLoggedIn}, currentProvider: {currentProvider ?? "null"}");
                     
                     // 确保窗口可见并激活
                     if (this.WindowState == System.Windows.WindowState.Minimized || !this.IsVisible)
@@ -428,7 +449,11 @@ namespace AudioRecorder
                     // 显示通知
                     systemTrayManager?.ShowNotification("AudioRecorder", "已退出登录", System.Windows.Forms.ToolTipIcon.Info);
                     
-                    _logger.LogInformation("✅ 退出登录成功，已切换到登录界面");
+                    _logger.LogInformation($"✅ 退出登录成功，已切换到登录界面 - Provider: {logoutProvider}");
+                }
+                else
+                {
+                    _logger.LogWarning($"无法执行退出登录 - oauthService: {(oauthService != null ? "存在" : "null")}, currentProvider: {logoutProvider ?? "null"}");
                 }
             }
             catch (Exception ex)
@@ -445,6 +470,8 @@ namespace AudioRecorder
         {
             try
             {
+                _logger.LogDebug($"开始更新托盘用户状态 - isLoggedIn: {isLoggedIn}, currentProvider: {currentProvider ?? "null"}");
+                
                 if (systemTrayManager != null)
                 {
                     // 获取当前用户信息
@@ -453,9 +480,19 @@ namespace AudioRecorder
                     {
                         // 从OAuth服务获取当前用户令牌信息
                         currentUser = oauthService.GetToken(currentProvider);
+                        _logger.LogDebug($"从OAuth服务获取到用户信息: {(currentUser != null ? $"{currentUser.UserName} ({currentUser.Provider})" : "null")}");
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"跳过获取用户信息 - isLoggedIn: {isLoggedIn}, oauthService: {(oauthService != null ? "存在" : "null")}, currentProvider: {currentProvider ?? "null"}");
                     }
                     
                     systemTrayManager.UpdateUserStatus(currentUser);
+                    _logger.LogDebug("托盘用户状态更新完成");
+                }
+                else
+                {
+                    _logger.LogWarning("systemTrayManager 为 null，无法更新托盘用户状态");
                 }
             }
             catch (Exception ex)

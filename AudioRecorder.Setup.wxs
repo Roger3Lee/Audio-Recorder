@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="AudioRecorder" Version="1.0.3" Manufacturer="AudioRecorder Team" Language="1033" UpgradeCode="12345678-1234-1234-1234-123456789012" Compressed="yes">
+  <Package Name="AudioRecorder" Version="1.0.4" Manufacturer="AudioRecorder Team" Language="1033" UpgradeCode="12345678-1234-1234-1234-123456789012" Compressed="yes">
     
     <!-- 升级配置 - 防止重复安装 -->
     <MajorUpgrade DowngradeErrorMessage="已安装更新版本的 AudioRecorder。请先卸载现有版本。" 
@@ -55,7 +55,7 @@
         <!-- 应用程序配置注册表 -->
         <RegistryKey Root="HKLM" Key="Software\AudioRecorder">
           <RegistryValue Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
-          <RegistryValue Name="Version" Value="1.0.3" Type="string" />
+          <RegistryValue Name="Version" Value="1.0.4" Type="string" />
           <RegistryValue Name="ProductCode" Value="[ProductCode]" Type="string" />
           <RegistryValue Name="UpgradeCode" Value="12345678-1234-1234-1234-123456789012" Type="string" />
         </RegistryKey>

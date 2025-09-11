@@ -27,6 +27,7 @@ namespace AudioRecorder.Services
         public event EventHandler<TokenInfo>? AuthorizationCompleted;
         public event EventHandler<string>? AuthorizationFailed;
         public event EventHandler<TokenInfo>? TokenRefreshed;
+        public event EventHandler<TokenInfo>? TokenSaved; // 新增：令牌保存事件
 
         public AuthorizationManager(OAuthConfig config)
         {
@@ -178,6 +179,9 @@ namespace AudioRecorder.Services
 
                 // 5. 保存令牌
                 await _storageManager.SaveTokensAsync(_config.ProviderName, tokenInfo);
+                
+                // 5.1. 通知令牌已保存
+                TokenSaved?.Invoke(this, tokenInfo);
 
                 // 6. 停止HTTP服务器
                 _httpServer.Stop();
@@ -804,6 +808,9 @@ namespace AudioRecorder.Services
 
                 // 保存新的令牌
                 await _storageManager.SaveTokensAsync(_config.ProviderName, newTokenInfo);
+                
+                // 通知令牌已保存
+                TokenSaved?.Invoke(this, newTokenInfo);
 
                 Console.WriteLine($"✅ 令牌刷新成功，新有效期: {newTokenInfo.ExpiresIn}秒");
                 TokenRefreshed?.Invoke(this, newTokenInfo);

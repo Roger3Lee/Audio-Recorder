@@ -61,6 +61,10 @@ namespace AudioRecorder.Services
                     var genericAuthManager = new AuthorizationManager(genericConfig);
                     _authManagers["GenericOAuth"] = genericAuthManager;
                     _tokenManager.AddAuthorizationManager("GenericOAuth", genericAuthManager);
+                    
+                    // 订阅令牌保存事件
+                    genericAuthManager.TokenSaved += OnTokenSaved;
+                    
                     _logger.LogInformation("通用OAuth服务器提供商初始化成功");
                 }
                 else
@@ -75,6 +79,10 @@ namespace AudioRecorder.Services
                     var githubAuthManager = new AuthorizationManager(githubConfig);
                     _authManagers["GitHub"] = githubAuthManager;
                     _tokenManager.AddAuthorizationManager("GitHub", githubAuthManager);
+                    
+                    // 订阅令牌保存事件
+                    githubAuthManager.TokenSaved += OnTokenSaved;
+                    
                     _logger.LogInformation("GitHub OAuth提供商初始化成功");
                 }
                 else
@@ -89,6 +97,10 @@ namespace AudioRecorder.Services
                     var googleAuthManager = new AuthorizationManager(googleConfig);
                     _authManagers["Google"] = googleAuthManager;
                     _tokenManager.AddAuthorizationManager("Google", googleAuthManager);
+                    
+                    // 订阅令牌保存事件
+                    googleAuthManager.TokenSaved += OnTokenSaved;
+                    
                     _logger.LogInformation("Google OAuth提供商初始化成功");
                 }
                 else
@@ -538,7 +550,7 @@ namespace AudioRecorder.Services
                     _logger.LogInformation($"开始登出{provider}");
                     
                     await _authManagers[provider].LogoutAsync();
-                    _tokenManager.RemoveToken(provider);
+                    await _tokenManager.RemoveTokenAsync(provider);
                     
                     _logger.LogInformation($"{provider}已登出");
                 }
@@ -720,6 +732,26 @@ namespace AudioRecorder.Services
             catch (Exception ex)
             {
                 _logger.LogError($"重新加载OAuth配置失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 处理令牌保存事件
+        /// </summary>
+        private async void OnTokenSaved(object? sender, TokenInfo tokenInfo)
+        {
+            try
+            {
+                _logger.LogInformation($"收到令牌保存事件: {tokenInfo.Provider} - {tokenInfo.UserName}");
+                
+                // 同步到TokenManager的内存中
+                _tokenManager.AddTokenToMemory(tokenInfo.Provider, tokenInfo);
+                
+                _logger.LogDebug($"令牌已同步到TokenManager: {tokenInfo.Provider}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"处理令牌保存事件失败: {ex.Message}", ex);
             }
         }
 

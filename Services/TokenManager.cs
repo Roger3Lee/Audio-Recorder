@@ -58,7 +58,7 @@ namespace AudioRecorder.Services
                         // 2. 验证令牌有效性
                         if (await ValidateTokenAsync(tokenInfo))
                         {
-                            _tokens[provider] = tokenInfo;
+                            AddTokenToMemory(provider, tokenInfo);
                             restoredCount++;
 
                             // 3. 如果令牌即将过期，立即刷新
@@ -337,7 +337,29 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 添加令牌
         /// </summary>
-        public void AddToken(string provider, TokenInfo tokenInfo)
+        public async Task AddTokenAsync(string provider, TokenInfo tokenInfo)
+        {
+            try
+            {
+                // 同时更新内存和存储
+                _tokens[provider] = tokenInfo;
+                await _storageManager.SaveTokensAsync(provider, tokenInfo);
+                
+                Console.WriteLine($"✅ 令牌已添加并保存: {provider} - {tokenInfo.UserName}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 添加令牌失败: {provider}, 错误: {ex.Message}");
+                // 如果保存失败，从内存中移除
+                _tokens.Remove(provider);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 添加令牌（仅内存，用于从存储恢复时）
+        /// </summary>
+        public void AddTokenToMemory(string provider, TokenInfo tokenInfo)
         {
             _tokens[provider] = tokenInfo;
         }
@@ -345,7 +367,30 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 移除令牌
         /// </summary>
-        public void RemoveToken(string provider)
+        public async Task RemoveTokenAsync(string provider)
+        {
+            try
+            {
+                // 同时从内存和存储中移除
+                if (_tokens.ContainsKey(provider))
+                {
+                    _tokens.Remove(provider);
+                }
+                await _storageManager.DeleteTokensAsync(provider);
+                
+                Console.WriteLine($"✅ 令牌已移除: {provider}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 移除令牌失败: {provider}, 错误: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 移除令牌（仅内存）
+        /// </summary>
+        public void RemoveTokenFromMemory(string provider)
         {
             if (_tokens.ContainsKey(provider))
             {
