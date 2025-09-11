@@ -1,12 +1,13 @@
+using AudioRecorder.Models;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
-using AudioRecorder.Models;
-using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -43,7 +44,7 @@ namespace AudioRecorder.Services
             _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
             _httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "AudioRecorder/1.0.0");
-            
+
             _logger.LogInformation("HTTP客户端配置完成，请求头已设置");
             _logger.LogInformation("AudioFileUploadService 初始化完成");
         }

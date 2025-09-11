@@ -398,6 +398,7 @@ namespace AudioRecorder.Services
                     AuthorizationEndpoint = OAuthSettings.OauthServer.AuthorizeUrl,
                     TokenEndpoint = OAuthSettings.OauthServer.TokenUrl,
                     UserInfoEndpoint = OAuthSettings.OauthServer.UserInfoUrl,
+                    LogoutEndpoint = OAuthSettings.OauthServer.LogoutUrl,
                     Scopes = OAuthSettings.OauthServer.Scopes.ToArray(),
                     ProviderName = "GenericOAuth",
                     EnablePkce = false,
@@ -706,6 +707,7 @@ namespace AudioRecorder.Services
         public string TokenUrl { get; set; } = "";
 
         public string UserInfoUrl { get; set; } = "";
+        public string LogoutUrl { get; set; } = "";
         public string ClientId { get; set; } = "audio_recorder";
         public string ClientSecret { get; set; } = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI";
         public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";

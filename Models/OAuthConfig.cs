@@ -25,6 +25,9 @@ namespace AudioRecorder.Models
         [JsonPropertyName("userinfo_endpoint")]
         public string UserInfoEndpoint { get; set; } = string.Empty;
 
+        [JsonPropertyName("logout_endpoint")]
+        public string LogoutEndpoint { get; set; } = string.Empty;
+
         [JsonPropertyName("scopes")]
         public string[] Scopes { get; set; } = Array.Empty<string>();
 

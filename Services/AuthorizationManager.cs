@@ -137,14 +137,15 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 处理授权码接收
         /// </summary>
-        private async void OnAuthorizationCodeReceived(object? sender, string authorizationCode)
+        private async void OnAuthorizationCodeReceived(object? sender, string authorizationCodeAndState)
         {
             try
             {
                 Console.WriteLine($"📥 收到授权码，开始交换令牌...");
+                var list = authorizationCodeAndState.Split("|");
+                var authorizationCode = list[0];
+                var receivedState = list[1];
 
-                // 获取从回调中接收到的state参数并验证
-                var receivedState = _httpServer.GetLastReceivedState();
                 if (!string.IsNullOrEmpty(receivedState))
                 {
                     Console.WriteLine($"📋 从回调获取到State参数: {receivedState}");
@@ -855,18 +856,92 @@ namespace AudioRecorder.Services
         }
 
         /// <summary>
-        /// 登出
+        /// 登出（包含单点登出）
         /// </summary>
         public async Task LogoutAsync()
         {
             try
             {
+                _logger.LogInformation($"🚪 开始登出 {_config.ProviderName}");
+
+                // 1. 获取当前令牌信息
+                var tokenInfo = await _storageManager.LoadTokensAsync(_config.ProviderName);
+                
+                // 2. 如果有访问令牌且配置了登出端点，执行单点登出
+                if (tokenInfo != null && !string.IsNullOrEmpty(tokenInfo.AccessToken) && !string.IsNullOrEmpty(_config.LogoutEndpoint))
+                {
+                    await PerformSingleSignOutAsync(tokenInfo.AccessToken);
+                }
+
+                // 3. 清理本地令牌存储
                 await _storageManager.DeleteTokensAsync(_config.ProviderName);
-                Console.WriteLine($"🚪 已登出 {_config.ProviderName}");
+                
+                _logger.LogInformation($"✅ {_config.ProviderName} 登出成功");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 登出失败: {ex.Message}");
+                _logger.LogError($"❌ {_config.ProviderName} 登出失败: {ex.Message}", ex);
+                
+                // 即使单点登出失败，也要清理本地令牌
+                try
+                {
+                    await _storageManager.DeleteTokensAsync(_config.ProviderName);
+                    _logger.LogInformation("✅ 本地令牌已清理");
+                }
+                catch (Exception localEx)
+                {
+                    _logger.LogError($"❌ 清理本地令牌失败: {localEx.Message}", localEx);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 执行单点登出
+        /// </summary>
+        private async Task PerformSingleSignOutAsync(string accessToken)
+        {
+            try
+            {
+                _logger.LogInformation($"🔄 开始单点登出: {_config.LogoutEndpoint}");
+
+                // 构建登出URL，包含token参数
+                var logoutUrl = $"{_config.LogoutEndpoint}?token={accessToken}";
+                
+                // 创建Basic Authentication头
+                var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_config.ClientId}:{_config.ClientSecret}"));
+                
+                using var request = new HttpRequestMessage(HttpMethod.Delete, logoutUrl);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
+                request.Headers.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
+                request.Headers.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("deflate"));
+                request.Headers.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("br"));
+                request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+                request.Headers.Connection.Add("keep-alive");
+                request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AudioRecorder", "1.0"));
+
+                _logger.LogDebug($"📤 单点登出请求: {logoutUrl}");
+                _logger.LogDebug($"🔐 Authorization: Basic {credentials}");
+
+                var response = await _httpClient.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogDebug($"📥 单点登出响应状态: {response.StatusCode}");
+                _logger.LogDebug($"📄 单点登出响应内容: {responseContent}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("✅ 单点登出成功");
+                }
+                else
+                {
+                    _logger.LogWarning($"⚠️ 单点登出返回非成功状态: {response.StatusCode} - {responseContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ 单点登出请求失败: {ex.Message}", ex);
+                throw; // 重新抛出异常，让调用方处理
             }
         }
 

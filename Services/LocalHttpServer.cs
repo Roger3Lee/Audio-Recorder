@@ -19,7 +19,6 @@ namespace AudioRecorder.Services
         private readonly string _callbackPath;
         private bool _isRunning;
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private string? _lastReceivedState;
 
         public event EventHandler<string>? AuthorizationCodeReceived;
         public event EventHandler<string>? ErrorOccurred;
@@ -38,7 +37,8 @@ namespace AudioRecorder.Services
         {
             try
             {
-                if (_isRunning) {
+                if (_isRunning)
+                {
                     return true;
                 }
 
@@ -70,10 +70,10 @@ namespace AudioRecorder.Services
         {
             try
             {
-                _isRunning = false;
-                _cancellationTokenSource.Cancel();
-                _listener?.Stop();
-                _listener?.Close();
+                //_isRunning = false;
+                //_cancellationTokenSource.Cancel();
+                //_listener?.Stop();
+                //_listener?.Close();
                 Console.WriteLine("🛑 本地HTTP服务器已停止");
             }
             catch (Exception ex)
@@ -169,15 +169,12 @@ namespace AudioRecorder.Services
                     return;
                 }
 
-                // 保存接收到的state参数
-                _lastReceivedState = state;
-
                 Console.WriteLine($"✅ 收到授权码: {code}");
                 if (!string.IsNullOrEmpty(state))
                 {
                     Console.WriteLine($"📋 State参数: {state}");
                 }
-                AuthorizationCodeReceived?.Invoke(this, code);
+                AuthorizationCodeReceived?.Invoke(this, $"{code}|{state}");
 
                 // 发送成功页面
                 await SendSuccessResponseAsync(response);
@@ -421,14 +418,6 @@ namespace AudioRecorder.Services
         public string GetCallbackUrl()
         {
             return $"http://localhost:{_port}{_callbackPath}";
-        }
-
-        /// <summary>
-        /// 获取最后接收到的state参数
-        /// </summary>
-        public string? GetLastReceivedState()
-        {
-            return _lastReceivedState;
         }
 
         /// <summary>
