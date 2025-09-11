@@ -259,4 +259,114 @@ namespace AudioRecorder.Models
                    string.Empty;
         }
     }
+
+    /// <summary>
+    /// 包装的OAuth令牌响应（用于处理服务器返回的包装格式）
+    /// </summary>
+    public class WrappedTokenResponse
+    {
+        [JsonPropertyName("code")]
+        public int Code { get; set; }
+
+        [JsonPropertyName("data")]
+        public TokenInfo? Data { get; set; }
+
+        [JsonPropertyName("msg")]
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 检查响应是否成功
+        /// </summary>
+        public bool IsSuccess => Code == 0;
+
+        /// <summary>
+        /// 获取令牌信息（如果成功的话）
+        /// </summary>
+        public TokenInfo? GetTokenInfo()
+        {
+            return IsSuccess ? Data : null;
+        }
+    }
+
+    /// <summary>
+    /// 服务器用户信息（基于你提供的JSON结构）
+    /// </summary>
+    public class ServerUserInfo
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; } = string.Empty;
+
+        [JsonPropertyName("nickname")]
+        public string Nickname { get; set; } = string.Empty;
+
+        [JsonPropertyName("email")]
+        public string Email { get; set; } = string.Empty;
+
+        [JsonPropertyName("mobile")]
+        public string Mobile { get; set; } = string.Empty;
+
+        [JsonPropertyName("sex")]
+        public int Sex { get; set; }
+
+        [JsonPropertyName("avatar")]
+        public string? Avatar { get; set; }
+
+        [JsonPropertyName("dept_id")]
+        public int? DeptId { get; set; }
+
+        [JsonPropertyName("post_ids")]
+        public int[]? PostIds { get; set; }
+
+        [JsonPropertyName("login_ip")]
+        public string? LoginIp { get; set; }
+
+        [JsonPropertyName("login_date")]
+        public DateTime? LoginDate { get; set; }
+
+        [JsonPropertyName("creator")]
+        public string? Creator { get; set; }
+
+        [JsonPropertyName("create_time")]
+        public DateTime? CreateTime { get; set; }
+
+        [JsonPropertyName("updater")]
+        public string? Updater { get; set; }
+
+        [JsonPropertyName("update_time")]
+        public DateTime? UpdateTime { get; set; }
+
+        [JsonPropertyName("tenant_id")]
+        public int? TenantId { get; set; }
+    }
+
+    /// <summary>
+    /// 包装的用户信息响应
+    /// </summary>
+    public class WrappedUserInfoResponse
+    {
+        [JsonPropertyName("code")]
+        public int Code { get; set; }
+
+        [JsonPropertyName("data")]
+        public ServerUserInfo? Data { get; set; }
+
+        [JsonPropertyName("msg")]
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 检查响应是否成功
+        /// </summary>
+        public bool IsSuccess => Code == 0;
+
+        /// <summary>
+        /// 获取用户信息（如果成功的话）
+        /// </summary>
+        public ServerUserInfo? GetUserInfo()
+        {
+            return IsSuccess ? Data : null;
+        }
+    }
 }

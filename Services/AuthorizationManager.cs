@@ -22,6 +22,7 @@ namespace AudioRecorder.Services
         private readonly HttpClient _httpClient;
         private readonly OAuthConfig _config;
         private readonly ILogger _logger;
+        private string? _sentState; // 存储发送的state参数
 
         public event EventHandler<TokenInfo>? AuthorizationCompleted;
         public event EventHandler<string>? AuthorizationFailed;
@@ -78,7 +79,8 @@ namespace AudioRecorder.Services
         /// </summary>
         private string BuildAuthorizationUrl()
         {
-            var state = Guid.NewGuid().ToString("N");
+            // 生成并存储state参数
+            _sentState = Guid.NewGuid().ToString("N");
             var scope = string.Join(" ", _config.Scopes);
             var callbackUrl = _httpServer.GetCallbackUrl();
 
@@ -88,8 +90,10 @@ namespace AudioRecorder.Services
                 ["redirect_uri"] = callbackUrl,
                 ["response_type"] = _config.ResponseType,
                 ["scope"] = scope,
-                ["state"] = state
+                ["state"] = _sentState
             };
+
+            Console.WriteLine($"📤 发送State参数: {_sentState}");
 
             // 添加可选的OAuth参数
             if (!string.IsNullOrEmpty(_config.AccessType))
@@ -138,8 +142,26 @@ namespace AudioRecorder.Services
             {
                 Console.WriteLine($"📥 收到授权码，开始交换令牌...");
 
-                // 1. 使用授权码交换访问令牌
-                var tokenInfo = await ExchangeAuthorizationCodeAsync(authorizationCode);
+                // 获取从回调中接收到的state参数并验证
+                var receivedState = _httpServer.GetLastReceivedState();
+                if (!string.IsNullOrEmpty(receivedState))
+                {
+                    Console.WriteLine($"📋 从回调获取到State参数: {receivedState}");
+                    
+                    // 验证state参数是否匹配（防止CSRF攻击）
+                    if (!string.IsNullOrEmpty(_sentState) && receivedState != _sentState)
+                    {
+                        throw new Exception($"State参数不匹配，可能存在安全风险。发送: {_sentState}, 接收: {receivedState}");
+                    }
+                    Console.WriteLine("✅ State参数验证通过");
+                }
+                else if (!string.IsNullOrEmpty(_sentState))
+                {
+                    Console.WriteLine("⚠️ 未收到State参数，但发送时包含了State参数");
+                }
+
+                // 1. 使用授权码交换访问令牌，传递state参数
+                var tokenInfo = await ExchangeAuthorizationCodeAsync(authorizationCode, receivedState);
                 if (tokenInfo == null || String.IsNullOrEmpty( tokenInfo.AccessToken))
                 {
                     throw new Exception("令牌交换失败");
@@ -182,24 +204,39 @@ namespace AudioRecorder.Services
         /// <summary>
         /// 使用授权码交换访问令牌
         /// </summary>
-        private async Task<TokenInfo?> ExchangeAuthorizationCodeAsync(string authorizationCode)
+        private async Task<TokenInfo?> ExchangeAuthorizationCodeAsync(string authorizationCode, string? state = null)
         {
             try
             {
                 var tokenRequest = new Dictionary<string, string>
                 {
+                    ["grant_type"] = "authorization_code",
                     ["client_id"] = _config.ClientId,
                     ["client_secret"] = _config.ClientSecret,
                     ["code"] = authorizationCode,
-                    ["grant_type"] = "authorization_code",
                     ["redirect_uri"] = _httpServer.GetCallbackUrl()
                 };
 
+                // 如果有state参数，包含在请求中
+                if (!string.IsNullOrEmpty(state))
+                {
+                    tokenRequest["state"] = state;
+                    Console.WriteLine($"📋 在令牌交换请求中包含State参数: {state}");
+                }
+
                 var content = new FormUrlEncodedContent(tokenRequest);
                 
-                // 设置请求头
+                // 设置请求头 - 使用Basic Authentication
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
+                _httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
+                _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                _httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
+                _httpClient.DefaultRequestHeaders.Add("User-Agent", "AudioRecorder/1.0");
+
+                // 创建Basic Authentication头 (clientId:clientSecret的base64编码)
+                var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_config.ClientId}:{_config.ClientSecret}"));
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
 
                 var response = await _httpClient.PostAsync(_config.TokenEndpoint, content);
 
@@ -213,15 +250,67 @@ namespace AudioRecorder.Services
                 var responseContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"📥 令牌响应: {responseContent}");
 
-                // GitHub返回的是application/x-www-form-urlencoded格式，需要特殊处理
+                // 根据Content-Type和提供商类型解析响应
                 TokenInfo? tokenInfo;
+                var contentType = response.Content.Headers.ContentType?.MediaType?.ToLower();
+                
                 if (_config.ProviderName.Equals("GitHub", StringComparison.OrdinalIgnoreCase))
                 {
+                    // GitHub返回的是application/x-www-form-urlencoded格式
                     tokenInfo = ParseGitHubTokenResponse(responseContent);
+                }
+                else if (contentType?.Contains("application/json") == true || responseContent.TrimStart().StartsWith("{"))
+                {
+                    // JSON格式响应
+                    try
+                    {
+                        // 首先尝试解析包装的响应格式
+                        if (responseContent.Contains("\"code\"") && responseContent.Contains("\"data\""))
+                        {
+                            var wrappedResponse = JsonSerializer.Deserialize<WrappedTokenResponse>(responseContent, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+
+                            if (wrappedResponse != null)
+                            {
+                                if (wrappedResponse.IsSuccess)
+                                {
+                                    tokenInfo = wrappedResponse.GetTokenInfo();
+                                    Console.WriteLine($"✅ 成功解析包装的令牌响应");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"❌ 服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
+                                    return null;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"❌ 无法解析包装的令牌响应");
+                                return null;
+                            }
+                        }
+                        else
+                        {
+                            // 尝试直接解析TokenInfo格式
+                            tokenInfo = JsonSerializer.Deserialize<TokenInfo>(responseContent, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"❌ JSON解析失败: {ex.Message}");
+                        Console.WriteLine($"📄 响应内容: {responseContent}");
+                        return null;
+                    }
                 }
                 else
                 {
-                    tokenInfo = JsonSerializer.Deserialize<TokenInfo>(responseContent);
+                    // 尝试作为form-urlencoded格式解析
+                    tokenInfo = ParseFormUrlEncodedTokenResponse(responseContent);
                 }
 
                 if (tokenInfo == null)
@@ -241,9 +330,9 @@ namespace AudioRecorder.Services
         }
 
         /// <summary>
-        /// 解析GitHub令牌响应（GitHub返回的是form-urlencoded格式）
+        /// 解析form-urlencoded格式的令牌响应
         /// </summary>
-        private TokenInfo? ParseGitHubTokenResponse(string responseContent)
+        private TokenInfo? ParseFormUrlEncodedTokenResponse(string responseContent)
         {
             try
             {
@@ -258,13 +347,25 @@ namespace AudioRecorder.Services
                         var key = Uri.UnescapeDataString(parts[0]);
                         var value = Uri.UnescapeDataString(parts[1]);
                         
-                        switch (key)
+                        switch (key.ToLower())
                         {
                             case "access_token":
                                 tokenInfo.AccessToken = value;
                                 break;
+                            case "refresh_token":
+                                tokenInfo.RefreshToken = value;
+                                break;
+                            case "id_token":
+                                tokenInfo.IdToken = value;
+                                break;
                             case "token_type":
                                 tokenInfo.TokenType = value;
+                                break;
+                            case "expires_in":
+                                if (int.TryParse(value, out int expiresIn))
+                                {
+                                    tokenInfo.ExpiresIn = expiresIn;
+                                }
                                 break;
                             case "scope":
                                 tokenInfo.Scope = value;
@@ -273,17 +374,40 @@ namespace AudioRecorder.Services
                     }
                 }
 
-                // GitHub OAuth App不返回refresh_token和expires_in
-                // 设置一个合理的过期时间（1小时）
-                tokenInfo.ExpiresIn = 3600;
+                // 如果没有设置过期时间，设置一个默认值
+                if (tokenInfo.ExpiresIn <= 0)
+                {
+                    tokenInfo.ExpiresIn = 3600; // 1小时
+                }
                 
                 return tokenInfo;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 解析GitHub令牌响应失败: {ex.Message}");
+                Console.WriteLine($"❌ 解析form-urlencoded令牌响应失败: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 解析GitHub令牌响应（GitHub返回的是form-urlencoded格式）
+        /// </summary>
+        private TokenInfo? ParseGitHubTokenResponse(string responseContent)
+        {
+            // 使用通用的form-urlencoded解析方法
+            var tokenInfo = ParseFormUrlEncodedTokenResponse(responseContent);
+            
+            if (tokenInfo != null)
+            {
+                // GitHub OAuth App不返回refresh_token和expires_in
+                // 设置一个合理的过期时间（1小时）
+                if (tokenInfo.ExpiresIn <= 0)
+                {
+                    tokenInfo.ExpiresIn = 3600;
+                }
+            }
+            
+            return tokenInfo;
         }
 
         /// <summary>
@@ -455,31 +579,87 @@ namespace AudioRecorder.Services
                     var content = await response.Content.ReadAsStringAsync();
                     _logger.LogDebug($"📥 用户信息响应: {content}");
 
-                    var userInfo = JsonSerializer.Deserialize<GenericUserInfo>(content);
-
-                    if (userInfo != null)
+                    try
                     {
-                        // 使用通用方法获取用户信息
-                        tokenInfo.UserId = userInfo.GetUserId();
-                        tokenInfo.UserEmail = userInfo.Email ?? string.Empty;
-                        tokenInfo.UserName = userInfo.GetUserName();
-                        tokenInfo.UserAvatar = userInfo.GetAvatarUrl();
+                        // 首先尝试解析包装的用户信息响应格式
+                        if (content.Contains("\"code\"") && content.Contains("\"data\""))
+                        {
+                            var wrappedUserResponse = JsonSerializer.Deserialize<WrappedUserInfoResponse>(content, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
 
-                        _logger.LogInformation($"👤 {_config.ProviderName} 用户信息: {tokenInfo.UserName} ({tokenInfo.UserEmail})");
-                        
-                        // 记录调试信息
-                        if (!string.IsNullOrEmpty(tokenInfo.UserId))
-                        {
-                            _logger.LogDebug($"🆔 用户ID: {tokenInfo.UserId}");
+                            if (wrappedUserResponse != null && wrappedUserResponse.IsSuccess)
+                            {
+                                var serverUserInfo = wrappedUserResponse.GetUserInfo();
+                                if (serverUserInfo != null)
+                                {
+                                    // 映射服务器用户信息到TokenInfo
+                                    tokenInfo.UserId = serverUserInfo.Id.ToString();
+                                    tokenInfo.UserEmail = serverUserInfo.Email;
+                                    tokenInfo.UserName = !string.IsNullOrEmpty(serverUserInfo.Nickname) ? serverUserInfo.Nickname : serverUserInfo.Username;
+                                    tokenInfo.UserAvatar = serverUserInfo.Avatar ?? string.Empty;
+
+                                    _logger.LogInformation($"👤 {_config.ProviderName} 用户信息: {tokenInfo.UserName} ({tokenInfo.UserEmail})");
+                                    _logger.LogDebug($"🆔 用户ID: {tokenInfo.UserId}");
+                                    _logger.LogDebug($"📱 手机号: {serverUserInfo.Mobile}");
+                                    _logger.LogDebug($"👥 用户名: {serverUserInfo.Username}");
+                                    
+                                    if (!string.IsNullOrEmpty(tokenInfo.UserAvatar))
+                                    {
+                                        _logger.LogDebug($"🖼️ 头像URL: {tokenInfo.UserAvatar}");
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"⚠️ 包装响应中的用户数据为空");
+                                }
+                            }
+                            else
+                            {
+                                var errorMsg = wrappedUserResponse?.Message ?? "未知错误";
+                                var errorCode = wrappedUserResponse?.Code ?? -1;
+                                _logger.LogWarning($"⚠️ 获取用户信息失败: Code={errorCode}, Message={errorMsg}");
+                            }
                         }
-                        if (!string.IsNullOrEmpty(tokenInfo.UserAvatar))
+                        else
                         {
-                            _logger.LogDebug($"🖼️ 头像URL: {tokenInfo.UserAvatar}");
+                            // 尝试解析通用用户信息格式（向后兼容）
+                            var userInfo = JsonSerializer.Deserialize<GenericUserInfo>(content, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+
+                            if (userInfo != null)
+                            {
+                                // 使用通用方法获取用户信息
+                                tokenInfo.UserId = userInfo.GetUserId();
+                                tokenInfo.UserEmail = userInfo.Email ?? string.Empty;
+                                tokenInfo.UserName = userInfo.GetUserName();
+                                tokenInfo.UserAvatar = userInfo.GetAvatarUrl();
+
+                                _logger.LogInformation($"👤 {_config.ProviderName} 用户信息: {tokenInfo.UserName} ({tokenInfo.UserEmail})");
+                                
+                                // 记录调试信息
+                                if (!string.IsNullOrEmpty(tokenInfo.UserId))
+                                {
+                                    _logger.LogDebug($"🆔 用户ID: {tokenInfo.UserId}");
+                                }
+                                if (!string.IsNullOrEmpty(tokenInfo.UserAvatar))
+                                {
+                                    _logger.LogDebug($"🖼️ 头像URL: {tokenInfo.UserAvatar}");
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"⚠️ 无法解析 {_config.ProviderName} 用户信息响应");
+                            }
                         }
                     }
-                    else
+                    catch (JsonException ex)
                     {
-                        _logger.LogWarning($"⚠️ 无法解析 {_config.ProviderName} 用户信息响应");
+                        _logger.LogError($"❌ 解析用户信息JSON失败: {ex.Message}");
+                        _logger.LogDebug($"📄 响应内容: {content}");
                     }
                 }
                 else
@@ -517,13 +697,26 @@ namespace AudioRecorder.Services
 
                 var refreshRequest = new Dictionary<string, string>
                 {
+                    ["grant_type"] = "refresh_token",
                     ["client_id"] = _config.ClientId,
                     ["client_secret"] = _config.ClientSecret,
-                    ["refresh_token"] = currentToken.RefreshToken,
-                    ["grant_type"] = "refresh_token"
+                    ["refresh_token"] = currentToken.RefreshToken
                 };
 
                 var content = new FormUrlEncodedContent(refreshRequest);
+                
+                // 设置请求头 - 使用Basic Authentication (与token exchange保持一致)
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
+                _httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
+                _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                _httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
+                _httpClient.DefaultRequestHeaders.Add("User-Agent", "AudioRecorder/1.0");
+
+                // 创建Basic Authentication头
+                var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_config.ClientId}:{_config.ClientSecret}"));
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+
                 var response = await _httpClient.PostAsync(_config.TokenEndpoint, content);
 
                 if (!response.IsSuccessStatusCode)
@@ -534,7 +727,64 @@ namespace AudioRecorder.Services
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var newTokenInfo = JsonSerializer.Deserialize<TokenInfo>(responseContent);
+                
+                // 使用与token exchange相同的解析逻辑
+                TokenInfo? newTokenInfo;
+                var contentType = response.Content.Headers.ContentType?.MediaType?.ToLower();
+                
+                if (contentType?.Contains("application/json") == true || responseContent.TrimStart().StartsWith("{"))
+                {
+                    // JSON格式响应
+                    try
+                    {
+                        // 首先尝试解析包装的响应格式
+                        if (responseContent.Contains("\"code\"") && responseContent.Contains("\"data\""))
+                        {
+                            var wrappedResponse = JsonSerializer.Deserialize<WrappedTokenResponse>(responseContent, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+
+                            if (wrappedResponse != null)
+                            {
+                                if (wrappedResponse.IsSuccess)
+                                {
+                                    newTokenInfo = wrappedResponse.GetTokenInfo();
+                                    Console.WriteLine($"✅ 成功解析包装的刷新令牌响应");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"❌ 刷新令牌服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
+                                    return null;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"❌ 无法解析包装的刷新令牌响应");
+                                return null;
+                            }
+                        }
+                        else
+                        {
+                            // 尝试直接解析TokenInfo格式
+                            newTokenInfo = JsonSerializer.Deserialize<TokenInfo>(responseContent, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"❌ 刷新令牌JSON解析失败: {ex.Message}");
+                        Console.WriteLine($"📄 响应内容: {responseContent}");
+                        return null;
+                    }
+                }
+                else
+                {
+                    // 尝试作为form-urlencoded格式解析
+                    newTokenInfo = ParseFormUrlEncodedTokenResponse(responseContent);
+                }
 
                 if (newTokenInfo == null)
                 {
