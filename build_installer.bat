@@ -1,145 +1,146 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo AudioRecorder 安装包构建脚本
+echo AudioRecorder Installation Package Build Script
 echo ========================================
 echo.
 
-:: 设置版本号（在这里统一管理）
-set "VERSION=1.0.3"
+:: Set version (centrally managed here)
+set "VERSION=1.0.5"
 set "BUILD_CONFIG=Release"
 set "TARGET_FRAMEWORK=net8.0-windows"
 set "RUNTIME=win-x64"
 
-echo 当前版本: %VERSION%
-echo 构建配置: %BUILD_CONFIG%
-echo 目标框架: %TARGET_FRAMEWORK%
-echo 运行时: %RUNTIME%
+echo Current Version: %VERSION%
+echo Build Config: %BUILD_CONFIG%
+echo Target Framework: %TARGET_FRAMEWORK%
+echo Runtime: %RUNTIME%
 echo.
 
-:: 1. 清理之前的构建
-echo 1. 清理之前的构建...
+:: 1. Clean previous builds
+echo 1. Cleaning previous builds...
 if exist "bin\%BUILD_CONFIG%\%TARGET_FRAMEWORK%\%RUNTIME%\publish" (
     rmdir /s /q "bin\%BUILD_CONFIG%\%TARGET_FRAMEWORK%\%RUNTIME%\publish"
-    echo ✓ 清理完成
+    echo [OK] Cleanup completed
 ) else (
-    echo ✓ 无需清理
+    echo [OK] No cleanup needed
 )
 echo.
 
-:: 2. 构建应用程序
-echo 2. 构建应用程序...
+:: 2. Build application
+echo 2. Building application...
 dotnet publish AudioRecorder.csproj -c %BUILD_CONFIG% -r %RUNTIME% --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o "bin/%BUILD_CONFIG%/%TARGET_FRAMEWORK%/%RUNTIME%/publish"
 
 if %errorlevel% neq 0 (
-    echo ❌ 应用程序构建失败
+    echo [ERROR] Application build failed
     pause
     exit /b 1
 )
-echo ✅ 应用程序构建成功
+echo [SUCCESS] Application build completed
 echo.
 
-:: 3. 验证构建输出
-echo 3. 验证构建输出...
+:: 3. Verify build output
+echo 3. Verifying build output...
 if not exist "bin\%BUILD_CONFIG%\%TARGET_FRAMEWORK%\%RUNTIME%\publish\AudioRecorder.exe" (
-    echo ❌ 主程序文件不存在
+    echo [ERROR] Main executable not found
     pause
     exit /b 1
 )
 
 if not exist "bin\%BUILD_CONFIG%\%TARGET_FRAMEWORK%\%RUNTIME%\publish\appsettings.json" (
-    echo ❌ 配置文件不存在
+    echo [ERROR] Configuration file not found
     pause
     exit /b 1
 )
 
-echo ✅ 构建输出验证通过
+echo [SUCCESS] Build output verification passed
 echo.
 
-:: 4. 检查WiX配置中的版本号
-echo 4. 检查WiX配置...
+:: 4. Check WiX configuration version
+echo 4. Checking WiX configuration...
 findstr /C:"Version=\"%VERSION%\"" AudioRecorder.Setup.wxs >nul
 if %errorlevel% neq 0 (
-    echo ❌ WiX配置文件中的版本号与当前版本不匹配
-    echo 请检查 AudioRecorder.Setup.wxs 中的 Package Version 属性
+    echo [ERROR] Version mismatch in WiX configuration
+    echo Please check Package Version in AudioRecorder.Setup.wxs
     pause
     exit /b 1
 )
 
 findstr /C:"Value=\"%VERSION%\"" AudioRecorder.Setup.wxs >nul
 if %errorlevel% neq 0 (
-    echo ❌ WiX配置文件中的注册表版本号与当前版本不匹配
-    echo 请检查 AudioRecorder.Setup.wxs 中的注册表 Version 值
+    echo [ERROR] Registry version mismatch in WiX configuration
+    echo Please check registry Version value in AudioRecorder.Setup.wxs
     pause
     exit /b 1
 )
 
-echo ✅ WiX配置版本号检查通过
+echo [SUCCESS] WiX configuration version check passed
 echo.
 
-:: 5. 构建安装包
-echo 5. 构建安装包...
+:: 5. Build installer package
+echo 5. Building installer package...
 if not exist "wix" mkdir wix
 
-:: 使用WiX工具构建MSI
+:: Use WiX tools to build MSI
 wix build AudioRecorder.Setup.wxs -o "wix\AudioRecorder-%VERSION%-Setup.msi"
 
 if %errorlevel% neq 0 (
-    echo ❌ 安装包构建失败
+    echo [ERROR] Installer package build failed
     echo.
-    echo 可能的原因：
-    echo 1. WiX工具未安装或未在PATH中
-    echo 2. WiX配置文件有语法错误
-    echo 3. 引用的文件不存在
+    echo Possible causes:
+    echo 1. WiX tools not installed or not in PATH
+    echo 2. Syntax errors in WiX configuration
+    echo 3. Referenced files do not exist
     echo.
-    echo 请检查错误信息并修复问题
+    echo Please check error messages and fix issues
     pause
     exit /b 1
 )
 
-echo ✅ 安装包构建成功
+echo [SUCCESS] Installer package build completed
 echo.
 
-:: 6. 验证安装包
-echo 6. 验证安装包...
+:: 6. Verify installer package
+echo 6. Verifying installer package...
 if not exist "wix\AudioRecorder-%VERSION%-Setup.msi" (
-    echo ❌ 安装包文件不存在
+    echo [ERROR] Installer package file not found
     pause
     exit /b 1
 )
 
-:: 获取文件大小
+:: Get file size
 for %%A in ("wix\AudioRecorder-%VERSION%-Setup.msi") do (
     set "FILE_SIZE=%%~zA"
 )
 
-echo ✅ 安装包验证通过
-echo   文件: wix\AudioRecorder-%VERSION%-Setup.msi
-echo   大小: !FILE_SIZE! 字节
+echo [SUCCESS] Installer package verification passed
+echo   File: wix\AudioRecorder-%VERSION%-Setup.msi
+echo   Size: !FILE_SIZE! bytes
 echo.
 
-:: 7. 显示构建摘要
+:: 7. Display build summary
 echo ========================================
-echo 构建摘要
+echo Build Summary
 echo ========================================
-echo 版本: %VERSION%
-echo 安装包: wix\AudioRecorder-%VERSION%-Setup.msi
-echo 大小: !FILE_SIZE! 字节
+echo Version: %VERSION%
+echo Installer: wix\AudioRecorder-%VERSION%-Setup.msi
+echo Size: !FILE_SIZE! bytes
 echo.
-echo 重复安装防护功能：
-echo ✓ 版本检查
-echo ✓ 注册表检查  
-echo ✓ 文件存在检查
-echo ✓ MSI升级逻辑
+echo Duplicate Installation Protection Features:
+echo [OK] Version check
+echo [OK] Registry check  
+echo [OK] File existence check
+echo [OK] MSI upgrade logic
 echo.
-echo 测试建议：
-echo 1. 运行 test_duplicate_install.bat 检查当前状态
-echo 2. 安装此版本
-echo 3. 再次尝试安装应该被阻止
-echo 4. 卸载后可以重新安装
+echo Testing Recommendations:
+echo 1. Run test_duplicate_install.bat to check current state
+echo 2. Install this version
+echo 3. Try installing again - should be blocked
+echo 4. Uninstall then reinstall should work
 echo ========================================
 
 echo.
-echo 构建完成！按任意键退出...
+echo Build completed! Press any key to exit...
 pause >nul
