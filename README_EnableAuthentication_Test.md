@@ -32,11 +32,11 @@ private void InitializeOAuth()
         oauthService.LoginFailed += OnOAuthLoginFailed;
         oauthService.LoginStateRestored += OnOAuthLoginStateRestored;
         
-        Console.WriteLine("✅ OAuth授权系统初始化成功");
+        _logger.LogInformation("✅ OAuth授权系统初始化成功");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ OAuth授权系统初始化失败: {ex.Message}");
+        _logger.LogInformation($"❌ OAuth授权系统初始化失败: {ex.Message}");
     }
 }
 ```
@@ -51,7 +51,7 @@ private void InitializeOAuth()
         var config = ConfigurationService.Instance;
         if (!config.IsOAuthEnabled())
         {
-            Console.WriteLine("⚠️ OAuth认证已禁用，跳过OAuth初始化");
+            _logger.LogInformation("⚠️ OAuth认证已禁用，跳过OAuth初始化");
             return;
         }
 
@@ -63,11 +63,11 @@ private void InitializeOAuth()
         oauthService.LoginFailed += OnOAuthLoginFailed;
         oauthService.LoginStateRestored += OnOAuthLoginStateRestored;
         
-        Console.WriteLine("✅ OAuth授权系统初始化成功");
+        _logger.LogInformation("✅ OAuth授权系统初始化成功");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ OAuth授权系统初始化失败: {ex.Message}");
+        _logger.LogInformation($"❌ OAuth授权系统初始化失败: {ex.Message}");
     }
 }
 ```

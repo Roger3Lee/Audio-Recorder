@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,8 +20,9 @@ namespace AudioRecorder.Services
         private readonly string _callbackPath;
         private bool _isRunning;
         private readonly CancellationTokenSource _cancellationTokenSource;
+		private readonly ILogger _logger;
 
-        public event EventHandler<string>? AuthorizationCodeReceived;
+		public event EventHandler<string>? AuthorizationCodeReceived;
         public event EventHandler<string>? ErrorOccurred;
 
         public LocalHttpServer(int port = 8081, string callbackPath = "/auth/callback")
@@ -28,7 +30,8 @@ namespace AudioRecorder.Services
             _port = port;
             _callbackPath = callbackPath;
             _cancellationTokenSource = new CancellationTokenSource();
-        }
+			_logger = LoggingServiceManager.CreateLogger("LocalHttpServer");
+		}
 
         /// <summary>
         /// 启动HTTP服务器
@@ -47,8 +50,8 @@ namespace AudioRecorder.Services
                 _listener.Start();
                 _isRunning = true;
 
-                Console.WriteLine($"🌐 本地HTTP服务器已启动: http://localhost:{_port}");
-                Console.WriteLine($"📡 回调路径: {_callbackPath}");
+                _logger.LogInformation($"🌐 本地HTTP服务器已启动: http://localhost:{_port}");
+                _logger.LogInformation($"📡 回调路径: {_callbackPath}");
 
                 // 开始监听请求
                 _ = Task.Run(ListenForRequestsAsync);
@@ -57,7 +60,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 启动HTTP服务器失败: {ex.Message}");
+                _logger.LogError($"❌ 启动HTTP服务器失败: {ex}");
                 ErrorOccurred?.Invoke(this, ex.Message);
                 return false;
             }
@@ -74,11 +77,11 @@ namespace AudioRecorder.Services
                 //_cancellationTokenSource.Cancel();
                 //_listener?.Stop();
                 //_listener?.Close();
-                Console.WriteLine("🛑 本地HTTP服务器已停止");
+                _logger.LogInformation("🛑 本地HTTP服务器已停止");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 停止HTTP服务器时出错: {ex.Message}");
+                _logger.LogInformation($"⚠️ 停止HTTP服务器时出错: {ex.Message}");
             }
         }
 
@@ -96,7 +99,7 @@ namespace AudioRecorder.Services
                 }
                 catch (Exception ex) when (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    Console.WriteLine($"⚠️ 处理HTTP请求时出错: {ex.Message}");
+                    _logger.LogInformation($"⚠️ 处理HTTP请求时出错: {ex.Message}");
                 }
             }
         }
@@ -111,7 +114,7 @@ namespace AudioRecorder.Services
                 var request = context.Request;
                 var response = context.Response;
 
-                Console.WriteLine($"📥 收到HTTP请求: {request.HttpMethod} {request.Url?.AbsolutePath}");
+                _logger.LogInformation($"📥 收到HTTP请求: {request.HttpMethod} {request.Url?.AbsolutePath}");
 
                 if (request.Url?.AbsolutePath == _callbackPath)
                 {
@@ -124,7 +127,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 处理HTTP请求失败: {ex.Message}");
+                _logger.LogInformation($"❌ 处理HTTP请求失败: {ex.Message}");
                 await SendErrorResponseAsync(context.Response, ex.Message);
             }
         }
@@ -157,7 +160,7 @@ namespace AudioRecorder.Services
                         errorMessage += $" - {errorDescription}";
                     }
 
-                    Console.WriteLine($"❌ OAuth回调错误: {errorMessage}");
+                    _logger.LogInformation($"❌ OAuth回调错误: {errorMessage}");
                     await SendErrorResponseAsync(response, errorMessage);
                     ErrorOccurred?.Invoke(this, errorMessage);
                     return;
@@ -169,10 +172,10 @@ namespace AudioRecorder.Services
                     return;
                 }
 
-                Console.WriteLine($"✅ 收到授权码: {code}");
+                _logger.LogInformation($"✅ 收到授权码: {code}");
                 if (!string.IsNullOrEmpty(state))
                 {
-                    Console.WriteLine($"📋 State参数: {state}");
+                    _logger.LogInformation($"📋 State参数: {state}");
                 }
                 AuthorizationCodeReceived?.Invoke(this, $"{code}|{state}");
 
@@ -181,7 +184,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 处理OAuth回调失败: {ex.Message}");
+                _logger.LogInformation($"❌ 处理OAuth回调失败: {ex.Message}");
                 await SendErrorResponseAsync(response, ex.Message);
                 ErrorOccurred?.Invoke(this, ex.Message);
             }
@@ -283,8 +286,6 @@ namespace AudioRecorder.Services
             font-family: 'Microsoft YaHei', sans-serif; 
             text-align: center; 
             padding: 50px; 
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
             margin: 0;
         }}
         .container {{ 
@@ -365,8 +366,6 @@ namespace AudioRecorder.Services
             font-family: 'Microsoft YaHei', sans-serif; 
             text-align: center; 
             padding: 50px; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             margin: 0;
         }
         .container { 

@@ -151,11 +151,11 @@ _logger.LogDebug("音频配置: {SampleRate}Hz, {Channels}声道, {BitsPerSample
 
 ## 🔄 集成到现有代码
 
-### **1. 替换Console.WriteLine**
+### **1. 替换_logger.LogInformation**
 
 ```csharp
 // 旧代码
-Console.WriteLine($"⚠️ 初始化上传服务失败: {ex.Message}");
+_logger.LogInformation($"⚠️ 初始化上传服务失败: {ex.Message}");
 
 // 新代码
 _logger.LogWarning(ex, "初始化上传服务失败");

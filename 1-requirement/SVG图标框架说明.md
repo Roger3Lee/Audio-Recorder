@@ -122,5 +122,5 @@ public static Drawing LoadSvgFromFile(string filePath)
 ### 调试技巧
 ```csharp
 // 启用图标调试信息
-Console.WriteLine($"加载图标: {iconName}, 尺寸: {width}x{height}");
+_logger.LogInformation($"加载图标: {iconName}, 尺寸: {width}x{height}");
 ```

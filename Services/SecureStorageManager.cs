@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AudioRecorder.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -16,11 +17,12 @@ namespace AudioRecorder.Services
     {
         private const string CREDENTIAL_TARGET_PREFIX = "AudioRecorder_OAuth_";
         private const string CREDENTIAL_USERNAME = "OAuth_Tokens";
+		private readonly static ILogger _logger = LoggingServiceManager.CreateLogger("SecureStorageManager");
 
-        /// <summary>
-        /// 保存令牌信息
-        /// </summary>
-        public async Task SaveTokensAsync(string provider, TokenInfo tokens)
+		/// <summary>
+		/// 保存令牌信息
+		/// </summary>
+		public async Task SaveTokensAsync(string provider, TokenInfo tokens)
         {
             try
             {
@@ -45,11 +47,11 @@ namespace AudioRecorder.Services
 
                 // 保存凭据
                 credential.Save();
-                Console.WriteLine($"💾 保存令牌成功: {provider}");
+                _logger.LogInformation($"💾 保存令牌成功: {provider}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 保存令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 保存令牌失败: {provider}, 错误: {ex.Message}");
                 throw;
             }
         }
@@ -67,14 +69,14 @@ namespace AudioRecorder.Services
                     var tokenInfo = JsonSerializer.Deserialize<TokenInfo>(credential.Password);
                     if (tokenInfo != null)
                     {
-                        Console.WriteLine($"📂 加载令牌成功: {provider}");
+                        _logger.LogInformation($"📂 加载令牌成功: {provider}");
                         return tokenInfo;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 加载令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 加载令牌失败: {provider}, 错误: {ex.Message}");
             }
 
             return null;
@@ -91,12 +93,12 @@ namespace AudioRecorder.Services
                 if (credential != null)
                 {
                     credential.Delete();
-                    Console.WriteLine($"🗑️ 删除令牌成功: {provider}");
+                    _logger.LogInformation($"🗑️ 删除令牌成功: {provider}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 删除令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 删除令牌失败: {provider}, 错误: {ex.Message}");
             }
         }
 
@@ -120,11 +122,11 @@ namespace AudioRecorder.Services
                     }
                 }
 
-                Console.WriteLine($"🔍 发现存储的提供商: {string.Join(", ", providers)}");
+                _logger.LogInformation($"🔍 发现存储的提供商: {string.Join(", ", providers)}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 枚举存储的提供商失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 枚举存储的提供商失败: {ex.Message}");
             }
 
             return providers;
@@ -158,11 +160,11 @@ namespace AudioRecorder.Services
                 {
                     await DeleteTokensAsync(provider);
                 }
-                Console.WriteLine("🧹 已清除所有存储的令牌");
+                _logger.LogInformation("🧹 已清除所有存储的令牌");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 清除所有令牌失败: {ex.Message}");
+                _logger.LogInformation($"❌ 清除所有令牌失败: {ex.Message}");
             }
         }
     }
@@ -217,7 +219,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 保存到文件失败: {ex.Message}");
+				Console.WriteLine($"⚠️ 保存到文件失败: {ex.Message}");
             }
         }
 
@@ -237,7 +239,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 从文件加载失败: {ex.Message}");
+				Console.WriteLine($"⚠️ 从文件加载失败: {ex.Message}");
             }
 
             return null;
@@ -258,7 +260,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 删除文件失败: {ex.Message}");
+				Console.WriteLine($"⚠️ 删除文件失败: {ex.Message}");
             }
         }
 
@@ -287,14 +289,14 @@ namespace AudioRecorder.Services
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"⚠️ 读取凭据文件失败: {file}, 错误: {ex.Message}");
+							Console.WriteLine($"⚠️ 读取凭据文件失败: {file}, 错误: {ex.Message}");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 枚举凭据文件失败: {ex.Message}");
+				Console.WriteLine($"⚠️ 枚举凭据文件失败: {ex.Message}");
             }
 
             return credentials;

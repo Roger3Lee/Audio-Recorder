@@ -170,11 +170,11 @@ AudioRecorder现在支持通过`appsettings.json`配置文件来管理所有重�
 var config = ConfigurationService.Instance;
 if (config.RealTimeSaveSettings.IsValid())
 {
-    Console.WriteLine("配置有效");
+    _logger.LogInformation("配置有效");
 }
 else
 {
-    Console.WriteLine("配置无效");
+    _logger.LogInformation("配置无效");
 }
 ```
 
@@ -182,7 +182,7 @@ else
 ```csharp
 // 获取配置摘要信息
 var summary = config.RealTimeSaveSettings.GetSummary();
-Console.WriteLine(summary);
+_logger.LogInformation(summary);
 // 输出: "实时保存: 启用, 处理间隔: 50ms, 刷新间隔: 50ms, 缓冲区: 1024, 性能监控: 启用"
 ```
 
@@ -271,8 +271,8 @@ Console.WriteLine(summary);
 ```csharp
 // 启用详细日志
 var config = ConfigurationService.Instance;
-Console.WriteLine($"音频配置: {config.AudioSettings.SampleRate}Hz, {config.AudioSettings.Channels}声道");
-Console.WriteLine($"实时保存: {config.RealTimeSaveSettings.GetSummary()}");
+_logger.LogInformation($"音频配置: {config.AudioSettings.SampleRate}Hz, {config.AudioSettings.Channels}声道");
+_logger.LogInformation($"实时保存: {config.RealTimeSaveSettings.GetSummary()}");
 ```
 
 ## 🎉 总结

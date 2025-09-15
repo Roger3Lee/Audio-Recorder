@@ -93,7 +93,7 @@ public void ClearFilePaths()
 ```csharp
 private void OnUploadCompleted(object? sender, string message)
 {
-    Console.WriteLine($"✅ {message}");
+    _logger.LogInformation($"✅ {message}");
 }
 ```
 
@@ -101,7 +101,7 @@ private void OnUploadCompleted(object? sender, string message)
 ```csharp
 private void OnUploadCompleted(object? sender, string message)
 {
-    Console.WriteLine($"✅ {message}");
+    _logger.LogInformation($"✅ {message}");
     
     // 上传完成后清理录音器中的文件路径
     if (recorder != null)
@@ -122,7 +122,7 @@ private void OnUploadCompleted(object? sender, string message)
 ```csharp
 private void OnUploadErrorOccurred(object? sender, Exception exception)
 {
-    Console.WriteLine($"❌ 上传错误: {exception.Message}");
+    _logger.LogInformation($"❌ 上传错误: {exception.Message}");
 }
 ```
 
@@ -130,7 +130,7 @@ private void OnUploadErrorOccurred(object? sender, Exception exception)
 ```csharp
 private void OnUploadErrorOccurred(object? sender, Exception exception)
 {
-    Console.WriteLine($"❌ 上传错误: {exception.Message}");
+    _logger.LogInformation($"❌ 上传错误: {exception.Message}");
     
     // 上传出错后也清理录音器中的文件路径
     if (recorder != null)
@@ -166,7 +166,7 @@ private async void AutoUploadRecordingFiles()
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ 准备上传文件失败: {ex.Message}");
+        _logger.LogInformation($"❌ 准备上传文件失败: {ex.Message}");
     }
 }
 ```
@@ -223,7 +223,7 @@ private async void AutoUploadRecordingFiles()
     catch (Exception ex)
     {
         _logger.LogError(ex, "准备上传文件时发生异常");
-        Console.WriteLine($"❌ 准备上传文件失败: {ex.Message}");
+        _logger.LogInformation($"❌ 准备上传文件失败: {ex.Message}");
     }
 }
 ```
@@ -262,8 +262,8 @@ dotnet run
 // 在调试时可以检查
 var systemPath = recorder.GetCurrentSystemAudioPath();
 var micPath = recorder.GetCurrentMicrophonePath();
-Console.WriteLine($"系统音频路径: {systemPath}");
-Console.WriteLine($"麦克风路径: {micPath}");
+_logger.LogInformation($"系统音频路径: {systemPath}");
+_logger.LogInformation($"麦克风路径: {micPath}");
 ```
 
 ## 🔍 **故障排除**

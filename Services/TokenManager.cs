@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
 using AudioRecorder.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AudioRecorder.Services
 {
@@ -11,8 +12,9 @@ namespace AudioRecorder.Services
     /// 令牌管理器 - 负责管理OAuth令牌的存储、验证和自动刷新
     /// </summary>
     public class TokenManager : IDisposable
-    {
-        private readonly SecureStorageManager _storageManager;
+	{
+		private readonly static ILogger _logger = LoggingServiceManager.CreateLogger("TokenManager");
+		private readonly SecureStorageManager _storageManager;
         private readonly Dictionary<string, TokenInfo> _tokens;
         private readonly Dictionary<string, AuthorizationManager> _authManagers;
         private readonly System.Timers.Timer _refreshTimer;
@@ -44,7 +46,7 @@ namespace AudioRecorder.Services
         {
             try
             {
-                Console.WriteLine("🔄 开始恢复登录状态...");
+                _logger.LogInformation("🔄 开始恢复登录状态...");
 
                 // 1. 从安全存储加载所有令牌
                 var providers = await _storageManager.GetStoredProvidersAsync();
@@ -67,14 +69,14 @@ namespace AudioRecorder.Services
                                 _ = Task.Run(async () => await RefreshTokenAsync(provider));
                             }
 
-                            Console.WriteLine($"✅ 恢复登录状态: {provider} - {tokenInfo.UserName}");
+                            _logger.LogInformation($"✅ 恢复登录状态: {provider} - {tokenInfo.UserName}");
                             LoginStateRestored?.Invoke(this, tokenInfo);
                         }
                         else
                         {
                             // 4. 无效令牌自动清理
                             await _storageManager.DeleteTokensAsync(provider);
-                            Console.WriteLine($"🧹 清理无效令牌: {provider}");
+                            _logger.LogInformation($"🧹 清理无效令牌: {provider}");
                         }
                     }
                 }
@@ -83,18 +85,18 @@ namespace AudioRecorder.Services
                 if (restoredCount > 0)
                 {
                     StartAutoRefresh();
-                    Console.WriteLine($"🔄 启动令牌自动刷新服务，已恢复 {restoredCount} 个账户");
+                    _logger.LogInformation($"🔄 启动令牌自动刷新服务，已恢复 {restoredCount} 个账户");
                 }
                 else
                 {
-                    Console.WriteLine("ℹ️ 无有效登录状态，需要手动登录");
+                    _logger.LogInformation("ℹ️ 无有效登录状态，需要手动登录");
                 }
 
                 return restoredCount > 0;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 恢复登录状态失败: {ex.Message}");
+                _logger.LogInformation($"❌ 恢复登录状态失败: {ex.Message}");
                 return false;
             }
         }
@@ -170,7 +172,7 @@ namespace AudioRecorder.Services
         {
             _refreshTimer.Start();
             _monitorTimer.Start();
-            Console.WriteLine("🔄 令牌自动刷新服务已启动");
+            _logger.LogInformation("🔄 令牌自动刷新服务已启动");
         }
 
         /// <summary>
@@ -180,7 +182,7 @@ namespace AudioRecorder.Services
         {
             _refreshTimer.Stop();
             _monitorTimer.Stop();
-            Console.WriteLine("🛑 令牌自动刷新服务已停止");
+            _logger.LogInformation("🛑 令牌自动刷新服务已停止");
         }
 
         /// <summary>
@@ -225,7 +227,7 @@ namespace AudioRecorder.Services
 
                 if (tokenInfo.IsExpired)
                 {
-                    Console.WriteLine($"⚠️ 令牌已过期: {provider}");
+                    _logger.LogInformation($"⚠️ 令牌已过期: {provider}");
                     TokenExpired?.Invoke(this, provider);
                     
                     // 尝试刷新令牌
@@ -233,7 +235,7 @@ namespace AudioRecorder.Services
                 }
                 else if (tokenInfo.IsExpiringSoon)
                 {
-                    Console.WriteLine($"⚠️ 令牌即将过期: {provider}, 剩余时间: {tokenInfo.TimeUntilExpiry.TotalMinutes:F1}分钟");
+                    _logger.LogInformation($"⚠️ 令牌即将过期: {provider}, 剩余时间: {tokenInfo.TimeUntilExpiry.TotalMinutes:F1}分钟");
                 }
             }
         }
@@ -247,14 +249,14 @@ namespace AudioRecorder.Services
             {
                 if (!_tokens.ContainsKey(provider))
                 {
-                    Console.WriteLine($"⚠️ 未找到提供商: {provider}");
+                    _logger.LogInformation($"⚠️ 未找到提供商: {provider}");
                     return false;
                 }
 
                 var currentToken = _tokens[provider];
                 if (string.IsNullOrEmpty(currentToken.RefreshToken))
                 {
-                    Console.WriteLine($"⚠️ 缺少刷新令牌: {provider}");
+                    _logger.LogInformation($"⚠️ 缺少刷新令牌: {provider}");
                     return false;
                 }
 
@@ -273,7 +275,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 刷新令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 刷新令牌失败: {provider}, 错误: {ex.Message}");
                 return false;
             }
         }
@@ -345,11 +347,11 @@ namespace AudioRecorder.Services
                 _tokens[provider] = tokenInfo;
                 await _storageManager.SaveTokensAsync(provider, tokenInfo);
                 
-                Console.WriteLine($"✅ 令牌已添加并保存: {provider} - {tokenInfo.UserName}");
+                _logger.LogInformation($"✅ 令牌已添加并保存: {provider} - {tokenInfo.UserName}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 添加令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 添加令牌失败: {provider}, 错误: {ex.Message}");
                 // 如果保存失败，从内存中移除
                 _tokens.Remove(provider);
                 throw;
@@ -378,11 +380,11 @@ namespace AudioRecorder.Services
                 }
                 await _storageManager.DeleteTokensAsync(provider);
                 
-                Console.WriteLine($"✅ 令牌已移除: {provider}");
+                _logger.LogInformation($"✅ 令牌已移除: {provider}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 移除令牌失败: {provider}, 错误: {ex.Message}");
+                _logger.LogInformation($"❌ 移除令牌失败: {provider}, 错误: {ex.Message}");
                 throw;
             }
         }
@@ -407,11 +409,11 @@ namespace AudioRecorder.Services
             {
                 _tokens.Clear();
                 await _storageManager.ClearAllTokensAsync();
-                Console.WriteLine("🧹 已清除所有令牌");
+                _logger.LogInformation("🧹 已清除所有令牌");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 清除所有令牌失败: {ex.Message}");
+                _logger.LogInformation($"❌ 清除所有令牌失败: {ex.Message}");
             }
         }
 

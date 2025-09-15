@@ -94,7 +94,7 @@ namespace AudioRecorder.Services
                 ["state"] = _sentState
             };
 
-            Console.WriteLine($"📤 发送State参数: {_sentState}");
+            _logger.LogInformation($"📤 发送State参数: {_sentState}");
 
             // 添加可选的OAuth参数
             if (!string.IsNullOrEmpty(_config.AccessType))
@@ -129,8 +129,8 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 无法自动打开浏览器: {ex.Message}");
-                Console.WriteLine($"请手动复制以下URL到浏览器: {url}");
+                _logger.LogInformation($"⚠️ 无法自动打开浏览器: {ex.Message}");
+                _logger.LogInformation($"请手动复制以下URL到浏览器: {url}");
             }
         }
 
@@ -141,25 +141,25 @@ namespace AudioRecorder.Services
         {
             try
             {
-                Console.WriteLine($"📥 收到授权码，开始交换令牌...");
+                _logger.LogInformation($"📥 收到授权码，开始交换令牌...");
                 var list = authorizationCodeAndState.Split("|");
                 var authorizationCode = list[0];
                 var receivedState = list[1];
 
                 if (!string.IsNullOrEmpty(receivedState))
                 {
-                    Console.WriteLine($"📋 从回调获取到State参数: {receivedState}");
+                    _logger.LogInformation($"📋 从回调获取到State参数: {receivedState}");
                     
                     // 验证state参数是否匹配（防止CSRF攻击）
                     if (!string.IsNullOrEmpty(_sentState) && receivedState != _sentState)
                     {
                         throw new Exception($"State参数不匹配，可能存在安全风险。发送: {_sentState}, 接收: {receivedState}");
                     }
-                    Console.WriteLine("✅ State参数验证通过");
+                    _logger.LogInformation("✅ State参数验证通过");
                 }
                 else if (!string.IsNullOrEmpty(_sentState))
                 {
-                    Console.WriteLine("⚠️ 未收到State参数，但发送时包含了State参数");
+                    _logger.LogInformation("⚠️ 未收到State参数，但发送时包含了State参数");
                 }
 
                 // 1. 使用授权码交换访问令牌，传递state参数
@@ -187,12 +187,12 @@ namespace AudioRecorder.Services
                 // 6. 停止HTTP服务器
                 _httpServer.Stop();
 
-                Console.WriteLine($"✅ {_config.ProviderName} 授权完成！");
+                _logger.LogInformation($"✅ {_config.ProviderName} 授权完成！");
                 AuthorizationCompleted?.Invoke(this, tokenInfo);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 处理授权码失败: {ex.Message}");
+                _logger.LogInformation($"❌ 处理授权码失败: {ex.Message}");
                 AuthorizationFailed?.Invoke(this, ex.Message);
             }
         }
@@ -202,7 +202,7 @@ namespace AudioRecorder.Services
         /// </summary>
         private void OnHttpServerError(object? sender, string error)
         {
-            Console.WriteLine($"❌ HTTP服务器错误: {error}");
+            _logger.LogInformation($"❌ HTTP服务器错误: {error}");
             AuthorizationFailed?.Invoke(this, error);
         }
 
@@ -226,7 +226,7 @@ namespace AudioRecorder.Services
                 if (!string.IsNullOrEmpty(state))
                 {
                     tokenRequest["state"] = state;
-                    Console.WriteLine($"📋 在令牌交换请求中包含State参数: {state}");
+                    _logger.LogInformation($"📋 在令牌交换请求中包含State参数: {state}");
                 }
 
                 var content = new FormUrlEncodedContent(tokenRequest);
@@ -248,12 +248,12 @@ namespace AudioRecorder.Services
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"❌ 令牌交换失败: {response.StatusCode} - {errorContent}");
+                    _logger.LogInformation($"❌ 令牌交换失败: {response.StatusCode} - {errorContent}");
                     return null;
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"📥 令牌响应: {responseContent}");
+                _logger.LogInformation($"📥 令牌响应: {responseContent}");
 
                 // 根据Content-Type和提供商类型解析响应
                 TokenInfo? tokenInfo;
@@ -282,17 +282,17 @@ namespace AudioRecorder.Services
                                 if (wrappedResponse.IsSuccess)
                                 {
                                     tokenInfo = wrappedResponse.GetTokenInfo();
-                                    Console.WriteLine($"✅ 成功解析包装的令牌响应");
+                                    _logger.LogInformation($"✅ 成功解析包装的令牌响应");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"❌ 服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
+                                    _logger.LogInformation($"❌ 服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
                                     return null;
                                 }
                             }
                             else
                             {
-                                Console.WriteLine($"❌ 无法解析包装的令牌响应");
+                                _logger.LogInformation($"❌ 无法解析包装的令牌响应");
                                 return null;
                             }
                         }
@@ -307,8 +307,8 @@ namespace AudioRecorder.Services
                     }
                     catch (JsonException ex)
                     {
-                        Console.WriteLine($"❌ JSON解析失败: {ex.Message}");
-                        Console.WriteLine($"📄 响应内容: {responseContent}");
+                        _logger.LogInformation($"❌ JSON解析失败: {ex.Message}");
+                        _logger.LogInformation($"📄 响应内容: {responseContent}");
                         return null;
                     }
                 }
@@ -320,16 +320,16 @@ namespace AudioRecorder.Services
 
                 if (tokenInfo == null)
                 {
-                    Console.WriteLine("❌ 无法解析令牌响应");
+                    _logger.LogInformation("❌ 无法解析令牌响应");
                     return null;
                 }
 
-                Console.WriteLine($"✅ 令牌交换成功，有效期: {tokenInfo.ExpiresIn}秒");
+                _logger.LogInformation($"✅ 令牌交换成功，有效期: {tokenInfo.ExpiresIn}秒");
                 return tokenInfo;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 令牌交换异常: {ex.Message}");
+                _logger.LogInformation($"❌ 令牌交换异常: {ex.Message}");
                 return null;
             }
         }
@@ -389,7 +389,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 解析form-urlencoded令牌响应失败: {ex.Message}");
+                _logger.LogInformation($"❌ 解析form-urlencoded令牌响应失败: {ex.Message}");
                 return null;
             }
         }
@@ -691,14 +691,14 @@ namespace AudioRecorder.Services
                     // GitHub OAuth App不支持刷新令牌，需要重新授权
                     if (_config.ProviderName.Equals("GitHub", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"⚠️ GitHub OAuth App不支持刷新令牌，需要重新授权");
+                        _logger.LogInformation($"⚠️ GitHub OAuth App不支持刷新令牌，需要重新授权");
                         return null;
                     }
                     
                     throw new Exception("缺少刷新令牌");
                 }
 
-                Console.WriteLine($"🔄 刷新 {_config.ProviderName} 访问令牌...");
+                _logger.LogInformation($"🔄 刷新 {_config.ProviderName} 访问令牌...");
 
                 var refreshRequest = new Dictionary<string, string>
                 {
@@ -727,7 +727,7 @@ namespace AudioRecorder.Services
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"❌ 令牌刷新失败: {response.StatusCode} - {errorContent}");
+                    _logger.LogInformation($"❌ 令牌刷新失败: {response.StatusCode} - {errorContent}");
                     return null;
                 }
 
@@ -755,17 +755,17 @@ namespace AudioRecorder.Services
                                 if (wrappedResponse.IsSuccess)
                                 {
                                     newTokenInfo = wrappedResponse.GetTokenInfo();
-                                    Console.WriteLine($"✅ 成功解析包装的刷新令牌响应");
+                                    _logger.LogInformation($"✅ 成功解析包装的刷新令牌响应");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"❌ 刷新令牌服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
+                                    _logger.LogInformation($"❌ 刷新令牌服务器返回错误: Code={wrappedResponse.Code}, Message={wrappedResponse.Message}");
                                     return null;
                                 }
                             }
                             else
                             {
-                                Console.WriteLine($"❌ 无法解析包装的刷新令牌响应");
+                                _logger.LogInformation($"❌ 无法解析包装的刷新令牌响应");
                                 return null;
                             }
                         }
@@ -780,8 +780,8 @@ namespace AudioRecorder.Services
                     }
                     catch (JsonException ex)
                     {
-                        Console.WriteLine($"❌ 刷新令牌JSON解析失败: {ex.Message}");
-                        Console.WriteLine($"📄 响应内容: {responseContent}");
+                        _logger.LogInformation($"❌ 刷新令牌JSON解析失败: {ex.Message}");
+                        _logger.LogInformation($"📄 响应内容: {responseContent}");
                         return null;
                     }
                 }
@@ -813,14 +813,14 @@ namespace AudioRecorder.Services
                 // 通知令牌已保存
                 TokenSaved?.Invoke(this, newTokenInfo);
 
-                Console.WriteLine($"✅ 令牌刷新成功，新有效期: {newTokenInfo.ExpiresIn}秒");
+                _logger.LogInformation($"✅ 令牌刷新成功，新有效期: {newTokenInfo.ExpiresIn}秒");
                 TokenRefreshed?.Invoke(this, newTokenInfo);
 
                 return newTokenInfo;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 刷新令牌失败: {ex.Message}");
+                _logger.LogInformation($"❌ 刷新令牌失败: {ex.Message}");
                 return null;
             }
         }
@@ -835,21 +835,21 @@ namespace AudioRecorder.Services
             // 检查访问令牌是否过期
             if (tokenInfo.IsExpired)
             {
-                Console.WriteLine($"⚠️ 访问令牌已过期: {_config.ProviderName}");
+                _logger.LogInformation($"⚠️ 访问令牌已过期: {_config.ProviderName}");
                 return false;
             }
 
             // 检查刷新令牌是否过期（如果有的话）
             if (!string.IsNullOrEmpty(tokenInfo.RefreshToken) && tokenInfo.IsRefreshTokenExpired)
             {
-                Console.WriteLine($"⚠️ 刷新令牌已过期: {_config.ProviderName}");
+                _logger.LogInformation($"⚠️ 刷新令牌已过期: {_config.ProviderName}");
                 return false;
             }
 
             // 检查是否即将过期（5分钟内）
             if (tokenInfo.IsExpiringSoon)
             {
-                Console.WriteLine($"⚠️ 访问令牌即将过期: {_config.ProviderName}, 剩余时间: {tokenInfo.TimeUntilExpiry.TotalMinutes:F1}分钟");
+                _logger.LogInformation($"⚠️ 访问令牌即将过期: {_config.ProviderName}, 剩余时间: {tokenInfo.TimeUntilExpiry.TotalMinutes:F1}分钟");
             }
 
             return true;

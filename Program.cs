@@ -20,23 +20,24 @@ namespace AudioRecorder
         private static Mutex? _mutex;
         private static bool _isFirstInstance = false;
         private static string? _pendingProtocolUrl;
-        private static ILogger? _logger;
+		private static ILogger? _logger ;
 
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
-        [STAThread]
+		/// <summary>
+		///  The main entry point for the application.
+		/// </summary>
+		[STAThread]
         public static void Main(string[] args)
         {
             try
-            {
-                // 检查命令行参数
-                if (args.Length > 0)
+			{
+				_logger = LoggingServiceManager.CreateLogger("Program");
+				// 检查命令行参数
+				if (args.Length > 0)
                 {
                     var arg = args[0].ToLower();
                     if (arg == "--uninstall" || arg == "--remove")
                     {
-                        Console.WriteLine("执行卸载清理...");
+                        _logger.LogInformation("执行卸载清理...");
                         UninstallCleanupService.PerformUninstallCleanup();
                         return;
                     }
@@ -104,10 +105,8 @@ namespace AudioRecorder
                 }
 
                 // 第一个实例，继续运行
-                Console.WriteLine("🚀 AudioRecorder 启动中...");
+                _logger.LogInformation("🚀 AudioRecorder 启动中...");
                 
-                // 初始化日志服务
-                _logger = LoggingServiceManager.CreateLogger("Program");
                 _logger.LogInformation("AudioRecorder应用程序启动");
                 
                 // 检查是否正在卸载
@@ -153,7 +152,7 @@ namespace AudioRecorder
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"清理日志服务失败: {ex.Message}");
+                        _logger.LogInformation($"清理日志服务失败: {ex.Message}");
                     }
                 };
                 
@@ -209,7 +208,7 @@ namespace AudioRecorder
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"最终清理失败: {ex.Message}");
+                    _logger.LogInformation($"最终清理失败: {ex.Message}");
                 }
                 
                 // 确保进程完全退出
@@ -294,21 +293,21 @@ namespace AudioRecorder
                             ShowWindow(existingProcess.MainWindowHandle, SW_RESTORE);
                         }
                         
-                        Console.WriteLine("✅ 已激活现有实例");
+                        _logger.LogInformation("✅ 已激活现有实例");
                     }
                     else
                     {
-                        Console.WriteLine("⚠️ 找到进程但无法激活窗口");
+                        _logger.LogInformation("⚠️ 找到进程但无法激活窗口");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("⚠️ 未找到已运行的实例");
+                    _logger.LogInformation("⚠️ 未找到已运行的实例");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 激活现有实例失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 激活现有实例失败: {ex.Message}");
             }
         }
 
@@ -319,12 +318,12 @@ namespace AudioRecorder
         {
             try
             {
-                Console.WriteLine("🔄 应用程序正在退出，执行清理...");
+                _logger.LogInformation("🔄 应用程序正在退出，执行清理...");
                 UninstallCleanupService.PerformUninstallCleanup();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 退出清理失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 退出清理失败: {ex.Message}");
             }
         }
 
@@ -335,7 +334,7 @@ namespace AudioRecorder
         {
             try
             {
-                Console.WriteLine("🔄 收到退出信号，执行清理...");
+                _logger.LogInformation("🔄 收到退出信号，执行清理...");
                 UninstallCleanupService.PerformUninstallCleanup();
                 
                 // 允许正常退出
@@ -343,7 +342,7 @@ namespace AudioRecorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ 退出清理失败: {ex.Message}");
+                _logger.LogInformation($"⚠️ 退出清理失败: {ex.Message}");
             }
         }
 

@@ -64,7 +64,7 @@ private async void ConfirmStopButton_Click(object sender, RoutedEventArgs e)
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ 停止录音失败: {ex.Message}");
+        _logger.LogInformation($"❌ 停止录音失败: {ex.Message}");
         ShowUploadStatusMessage($"❌ 操作失败: {ex.Message}");
     }
 }
@@ -135,7 +135,7 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"❌ 上传录音文件失败: {ex.Message}");
+    _logger.LogInformation($"❌ 上传录音文件失败: {ex.Message}");
     ShowUploadStatusMessage($"❌ 上传失败: {ex.Message}");
 }
 ```
@@ -206,13 +206,13 @@ NotifyWebSocketClients("recording_stopped", new { IsRecording = false });
 
 ```csharp
 // 启用详细日志
-Console.WriteLine($"📤 上传状态: {message}");
-Console.WriteLine($"❌ 上传错误: {ex.Message}");
+_logger.LogInformation($"📤 上传状态: {message}");
+_logger.LogInformation($"❌ 上传错误: {ex.Message}");
 
 // 检查配置
 var config = ConfigurationService.Instance.UploadSettings;
-Console.WriteLine($"服务器地址: {config.ServerUrl}");
-Console.WriteLine($"自动上传: {config.EnableAutoUpload}");
+_logger.LogInformation($"服务器地址: {config.ServerUrl}");
+_logger.LogInformation($"自动上传: {config.EnableAutoUpload}");
 ```
 
 ## 📈 性能监控
@@ -230,14 +230,14 @@ Console.WriteLine($"自动上传: {config.EnableAutoUpload}");
 // 上传进度回调
 private void OnUploadProgressChanged(object? sender, string message)
 {
-    Console.WriteLine($"📤 {message}");
+    _logger.LogInformation($"📤 {message}");
     // 可以在这里添加进度条更新逻辑
 }
 
 // 上传完成回调
 private void OnUploadCompleted(object? sender, string message)
 {
-    Console.WriteLine($"✅ {message}");
+    _logger.LogInformation($"✅ {message}");
     ShowUploadStatusMessage("✅ 文件上传完成！");
 }
 ```

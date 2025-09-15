@@ -4,7 +4,8 @@ using System.Text;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Collections.Generic; // Added for List
-using System.Linq; // Added for Sum and Select
+using System.Linq;
+using Microsoft.Extensions.Logging; // Added for Sum and Select
 
 namespace AudioRecorder.Services
 {
@@ -38,11 +39,13 @@ namespace AudioRecorder.Services
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly object _fileLock = new object();
         private bool _disposed = false;
+        private readonly ILogger _logger;
 
         public event EventHandler<string>? LogMessageReceived;
 
         private LoggingService()
         {
+            _logger = LoggingServiceManager.CreateLogger("LoggingService");
             // 优先使用用户AppData目录，避免安装目录权限问题
             try
             {
@@ -78,7 +81,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"创建日志目录失败: {ex.Message}");
+                _logger.LogInformation($"创建日志目录失败: {ex.Message}");
                 // 如果创建失败，尝试使用当前目录
                 _logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
                 _logFilePath = Path.Combine(_logDirectory, $"AudioRecorder_{DateTime.Now:yyyyMMdd}.log");
@@ -188,7 +191,7 @@ namespace AudioRecorder.Services
             catch (Exception ex)
             {
                 // 如果日志记录失败，至少尝试写入控制台
-                Console.WriteLine($"日志记录失败: {ex.Message}");
+                _logger.LogInformation($"日志记录失败: {ex.Message}");
             }
         }
 
@@ -272,7 +275,7 @@ namespace AudioRecorder.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"日志写入线程错误: {ex.Message}");
+                    _logger.LogInformation($"日志写入线程错误: {ex.Message}");
                     Thread.Sleep(1000); // 出错时等待更长时间
                 }
             }
@@ -298,7 +301,7 @@ namespace AudioRecorder.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"写入日志文件失败: {ex.Message}");
+                    _logger.LogInformation($"写入日志文件失败: {ex.Message}");
                 }
             }
         }
@@ -326,7 +329,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"日志文件轮转失败: {ex.Message}");
+                _logger.LogInformation($"日志文件轮转失败: {ex.Message}");
             }
         }
 
@@ -361,7 +364,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"清理旧日志文件失败: {ex.Message}");
+                _logger.LogInformation($"清理旧日志文件失败: {ex.Message}");
             }
         }
 
@@ -385,7 +388,7 @@ namespace AudioRecorder.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"刷新日志失败: {ex.Message}");
+                _logger.LogInformation($"刷新日志失败: {ex.Message}");
             }
         }
 
@@ -458,7 +461,7 @@ namespace AudioRecorder.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"释放日志服务时出错: {ex.Message}");
+                    _logger.LogInformation($"释放日志服务时出错: {ex.Message}");
                 }
             }
         }
