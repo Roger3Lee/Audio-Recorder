@@ -16,19 +16,34 @@ namespace AudioRecorder.Services
     public class LocalHttpServer : IDisposable
     {
         private HttpListener? _listener;
-        private readonly int _port;
+        private int _port;
         private readonly string _callbackPath;
         private bool _isRunning;
         private readonly CancellationTokenSource _cancellationTokenSource;
 		private readonly ILogger _logger;
+        private readonly bool _useRandomPort;
+        private readonly int _minPort;
+        private readonly int _maxPort;
 
 		public event EventHandler<string>? AuthorizationCodeReceived;
         public event EventHandler<string>? ErrorOccurred;
 
-        public LocalHttpServer(int port = 8081, string callbackPath = "/auth/callback")
+        /// <summary>
+        /// 构造函数 - 支持固定端口或动态端口分配
+        /// </summary>
+        /// <param name="port">固定端口号，如果为0则使用随机端口</param>
+        /// <param name="callbackPath">回调路径</param>
+        /// <param name="minPort">顺序端口最小值</param>
+        /// <param name="maxPort">顺序端口最大值</param>
+        public LocalHttpServer(int port = 0, string callbackPath = "/auth/callback", 
+                             int minPort = PortGenerator.DefaultMinPort, 
+                             int maxPort = PortGenerator.DefaultMaxPort)
         {
+            _useRandomPort = (port == 0);
             _port = port;
             _callbackPath = callbackPath;
+            _minPort = minPort;
+            _maxPort = maxPort;
             _cancellationTokenSource = new CancellationTokenSource();
 			_logger = LoggingServiceManager.CreateLogger("LocalHttpServer");
 		}
@@ -43,6 +58,26 @@ namespace AudioRecorder.Services
                 if (_isRunning)
                 {
                     return true;
+                }
+
+                // 动态分配端口
+                if (_useRandomPort)
+                {
+                    _port = PortGenerator.GetAvailablePort(_minPort, _maxPort);
+                    if (_port == -1)
+                    {
+                        throw new Exception($"无法在范围 {_minPort}-{_maxPort} 内找到可用端口");
+                    }
+                    _logger.LogInformation($"🎯 动态分配端口: {_port}");
+                }
+                else
+                {
+                    // 验证固定端口是否可用
+                    if (!PortGenerator.IsPortAvailable(_port))
+                    {
+                        throw new Exception($"指定端口 {_port} 不可用");
+                    }
+                    _logger.LogInformation($"🔒 使用固定端口: {_port}");
                 }
 
                 _listener = new HttpListener();
@@ -417,6 +452,14 @@ namespace AudioRecorder.Services
         public string GetCallbackUrl()
         {
             return $"http://localhost:{_port}{_callbackPath}";
+        }
+
+        /// <summary>
+        /// 获取当前使用的端口号
+        /// </summary>
+        public int GetPort()
+        {
+            return _port;
         }
 
         /// <summary>

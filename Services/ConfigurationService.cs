@@ -710,7 +710,7 @@ namespace AudioRecorder.Services
         public string LogoutUrl { get; set; } = "";
         public string ClientId { get; set; } = "audio_recorder";
         public string ClientSecret { get; set; } = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI";
-        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";
+        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback"; // 默认回调地址（运行时使用动态端口）
         public List<string> Scopes { get; set; } = new List<string> { "user", "user:email" };
     }
 
@@ -721,7 +721,7 @@ namespace AudioRecorder.Services
     {
         public string ClientId { get; set; } = "your-github-client-id";
         public string ClientSecret { get; set; } = "your-github-client-secret";
-        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";
+        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback"; // 默认回调地址（运行时使用动态端口）
         public List<string> Scopes { get; set; } = new List<string> { "user", "user:email" };
     }
 
@@ -732,7 +732,7 @@ namespace AudioRecorder.Services
     {
         public string ClientId { get; set; } = "your-google-client-id";
         public string ClientSecret { get; set; } = "your-google-client-secret";
-        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback";
+        public string RedirectUri { get; set; } = "http://localhost:8081/auth/callback"; // 默认回调地址（运行时使用动态端口）
         public List<string> Scopes { get; set; } = new List<string> { "openid", "profile", "email" };
     }
 }

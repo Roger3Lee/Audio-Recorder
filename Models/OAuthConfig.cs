@@ -68,7 +68,7 @@ namespace AudioRecorder.Models
         {
             ClientId = "audio_recorder",
             ClientSecret = "Kj8mN2pQ9vX5wR7sT3uY1zA4bC6dE8fG0hI",
-            RedirectUri = "http://localhost:8081/auth/callback",
+            RedirectUri = "http://localhost:8081/auth/callback", // 默认回调地址（运行时将使用动态端口）
             AuthorizationEndpoint = "/oauth/authorize", // 相对于ServerUrl的路径
             TokenEndpoint = "/oauth/token", // 相对于ServerUrl的路径
             UserInfoEndpoint = "/oauth/userinfo", // 相对于ServerUrl的路径
@@ -89,7 +89,7 @@ namespace AudioRecorder.Models
             {
                 ClientId = clientId,
                 ClientSecret = clientSecret,
-                RedirectUri = redirectUri,
+                RedirectUri = redirectUri, // 注意：运行时将使用动态端口覆盖此值
                 AuthorizationEndpoint = serverUrl.TrimEnd('/') + "/oauth/authorize",
                 TokenEndpoint = serverUrl.TrimEnd('/') + "/oauth/token",
                 UserInfoEndpoint = serverUrl.TrimEnd('/') + "/oauth/userinfo",
@@ -112,7 +112,7 @@ namespace AudioRecorder.Models
         {
             ClientId = "your-github-client-id", // 需要替换为实际的Client ID
             ClientSecret = "your-github-client-secret", // 需要替换为实际的Client Secret
-            RedirectUri = "http://localhost:8081/auth/callback",
+            RedirectUri = "http://localhost:8081/auth/callback", // 默认回调地址（运行时将使用动态端口）
             AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
             TokenEndpoint = "https://github.com/login/oauth/access_token",
             Scopes = new[] { "user", "user:email" }, // GitHub scopes: user(读取用户信息), user:email(读取邮箱)
@@ -126,13 +126,13 @@ namespace AudioRecorder.Models
         /// <summary>
         /// 创建自定义GitHub OAuth配置
         /// </summary>
-        public static OAuthConfig Create(string clientId, string clientSecret, string redirectUri = "http://localhost:8081/auth/callback")
+        public static OAuthConfig Create(string clientId, string clientSecret, string redirectUri = "http://localhost:53000/auth/callback")
         {
             return new OAuthConfig
             {
                 ClientId = clientId,
                 ClientSecret = clientSecret,
-                RedirectUri = redirectUri,
+                RedirectUri = redirectUri, // 注意：运行时将使用动态端口覆盖此值
                 AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
                 TokenEndpoint = "https://github.com/login/oauth/access_token",
                 Scopes = new[] { "user", "user:email" },
@@ -154,7 +154,7 @@ namespace AudioRecorder.Models
         {
             ClientId = "your-google-client-id", // 需要替换为实际的Client ID
             ClientSecret = "your-google-client-secret", // 需要替换为实际的Client Secret
-            RedirectUri = "http://localhost:8081/auth/callback",
+            RedirectUri = "http://localhost:8081/auth/callback", // 默认回调地址（运行时将使用动态端口）
             AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
             TokenEndpoint = "https://oauth2.googleapis.com/token",
             Scopes = new[] { "openid", "profile", "email" },
@@ -168,13 +168,13 @@ namespace AudioRecorder.Models
         /// <summary>
         /// 创建自定义Google OAuth配置
         /// </summary>
-        public static OAuthConfig Create(string clientId, string clientSecret, string redirectUri = "http://localhost:8081/auth/callback")
+        public static OAuthConfig Create(string clientId, string clientSecret, string redirectUri = "http://localhost:53000/auth/callback")
         {
             return new OAuthConfig
             {
                 ClientId = clientId,
                 ClientSecret = clientSecret,
-                RedirectUri = redirectUri,
+                RedirectUri = redirectUri, // 注意：运行时将使用动态端口覆盖此值
                 AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
                 TokenEndpoint = "https://oauth2.googleapis.com/token",
                 Scopes = new[] { "openid", "profile", "email" },

@@ -33,7 +33,7 @@ namespace AudioRecorder.Services
         {
             _config = config;
             _storageManager = new SecureStorageManager();
-            _httpServer = new LocalHttpServer();
+            _httpServer = new LocalHttpServer(0); // 使用随机端口 (0表示动态分配)
             _httpClient = new HttpClient();
             _logger = LoggingServiceManager.CreateLogger("AuthorizationManager");
 
@@ -57,6 +57,10 @@ namespace AudioRecorder.Services
                 {
                     throw new Exception("无法启动本地HTTP服务器");
                 }
+
+                // 记录实际使用的端口
+                _logger.LogInformation($"🔌 使用端口: {_httpServer.GetPort()}");
+                _logger.LogInformation($"🔗 回调URL: {_httpServer.GetCallbackUrl()}");
 
                 // 2. 构建授权URL
                 var authUrl = BuildAuthorizationUrl();
